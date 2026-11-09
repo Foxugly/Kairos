@@ -11,6 +11,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from marche.releve import relever_cours
+from portefeuille.execution import decider_du_jour, executer
 from sources.rss import relever_nouvelles
 
 from .models import Cycle, StatutCycle, Verrou
@@ -24,6 +25,8 @@ CONSERVATION = timedelta(days=30)
 ETAPES: list[tuple[str, Callable[[datetime], dict]]] = [
     ("nouvelles", relever_nouvelles),
     ("cours", relever_cours),
+    ("decisions", decider_du_jour),
+    ("execution", executer),
 ]
 
 
