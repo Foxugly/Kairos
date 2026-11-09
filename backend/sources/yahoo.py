@@ -42,7 +42,11 @@ class SourceYahoo:
         resultat: dict[str, list[BougieBrute]] = {}
         for ticker in tickers:
             try:
-                resultat[ticker] = self._extraire(donnees[ticker])
+                brutes = self._extraire(donnees[ticker])
+                resultat[ticker] = brutes
+                if not brutes and (intervalle == "1d" or len(donnees[ticker]) > 0):
+                    # Colonne entièrement NaN, ou aucune bougie journalière : pas un « rien de neuf ».
+                    self.erreurs[ticker] = "aucune bougie exploitable"
             except Exception as exc:  # ticker absent ou colonnes inattendues
                 self.erreurs[ticker] = f"aucune donnée : {exc!r}"
         return resultat
@@ -52,6 +56,8 @@ class SourceYahoo:
         table = table[_CHAMPS].dropna()  # lignes incomplètes (NaN) écartées
         bougies = []
         for instant, ligne in table.iterrows():
+            # Intraday : horodatage avec fuseau. Journalier : date locale de la séance sans fuseau,
+            # lue comme minuit UTC de ce jour (convention des bougies `1d`).
             debut = instant.to_pydatetime()
             debut = debut.replace(tzinfo=UTC) if debut.tzinfo is None else debut.astimezone(UTC)
             bougies.append(BougieBrute(

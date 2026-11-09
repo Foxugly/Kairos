@@ -75,6 +75,32 @@ class SourceYahooTests(SimpleTestCase):
         source.bougies(["AAPL"], "5m", DEPUIS)
         self.assertEqual(source.erreurs, {})
 
+    def test_colonne_toute_nan_signalee(self, download):
+        nan = float("nan")
+        download.return_value = telechargement(
+            AAPL=table([("2026-11-09 14:30", nan, nan, nan, nan, nan)])
+        )
+        source = SourceYahoo()
+        self.assertEqual(source.bougies(["AAPL"], "5m", DEPUIS)["AAPL"], [])
+        self.assertEqual(source.erreurs, {"AAPL": "aucune bougie exploitable"})
+
+    def test_5m_vide_est_legitime_mais_pas_1d(self, download):
+        vide = table([("2026-11-09 14:30", 1, 1, 1, 1, 1)]).iloc[0:0]
+        download.return_value = telechargement(AAPL=vide)
+        source = SourceYahoo()
+        source.bougies(["AAPL"], "5m", DEPUIS)
+        self.assertEqual(source.erreurs, {})
+        source.bougies(["AAPL"], "1d", DEPUIS)
+        self.assertEqual(source.erreurs, {"AAPL": "aucune bougie exploitable"})
+
+    def test_ticker_unique_et_date_journaliere_sans_fuseau(self, download):
+        index = pd.DatetimeIndex(["2026-11-09"])  # forme réelle de yfinance en 1d : sans fuseau
+        brut = pd.DataFrame([[10, 11, 9, 10.5, 100]], index=index,
+                            columns=["Open", "High", "Low", "Close", "Volume"])
+        download.return_value = telechargement(AAPL=brut)
+        resultat = SourceYahoo().bougies(["AAPL"], "1d", DEPUIS)
+        self.assertEqual(resultat["AAPL"][0].debut, datetime(2026, 11, 9, tzinfo=UTC))
+
     def test_taux_eur(self, download):
         download.return_value = telechargement(**{
             "EURUSD=X": table([("2026-11-09", 1.25, 1.25, 1.25, 1.25, 0)])

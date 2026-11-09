@@ -1,6 +1,8 @@
 from datetime import UTC, datetime
 from decimal import Decimal
+from unittest import mock
 
+from django.db import DatabaseError
 from django.test import TestCase
 
 from marche.models import Bougie, StatutValeur, TauxChange, Valeur
@@ -106,8 +108,8 @@ class RelevéCinqMinutesTests(TestCase):
 class RelevéJournalierTests(TestCase):
     # 17:00 UTC = 18:00 à Paris : fermé depuis 30 min, bougie du jour à relever.
     APRES = datetime(2026, 11, 9, 17, 0, tzinfo=UTC)
-    # Minuit local à Paris en novembre (UTC+1) = 23:00 UTC la veille.
-    MINUIT = datetime(2026, 11, 8, 23, 0, tzinfo=UTC)
+    # Yahoo date la bougie journalière par la date locale, lue comme minuit UTC.
+    MINUIT = datetime(2026, 11, 9, tzinfo=UTC)
 
     def test_releve_les_bougies_du_jour_apres_la_fermeture(self):
         valeur("TTE.PA", "XPAR", "EUR")
@@ -129,3 +131,30 @@ class RelevéJournalierTests(TestCase):
         relever_cours(datetime(2026, 11, 9, 10, 0, tzinfo=UTC), source)  # en séance
         relever_cours(datetime(2026, 11, 14, 17, 0, tzinfo=UTC), source)  # samedi
         self.assertNotIn("1d", [a[1] for a in source.appels])
+
+    def test_nyse_une_fois_la_bougie_du_jour_enregistree(self):
+        valeur("KO", "NYSE", "USD")
+        soir = datetime(2026, 11, 9, 22, 0, tzinfo=UTC)  # 17:00 à New York, fermé
+        relever_cours(soir, SourceFactice({("KO", "1d"): [brute(self.MINUIT)]}))
+        source = SourceFactice()
+        relever_cours(datetime(2026, 11, 9, 23, 0, tzinfo=UTC), source)
+        self.assertEqual(source.appels, [])
+
+
+class EnregistrementIsoleTests(TestCase):
+    def test_une_erreur_en_base_n_arrete_pas_les_autres(self):
+        valeur("TTE.PA", "XPAR", "EUR")
+        valeur("AIR.PA", "XPAR", "EUR")
+        debut = datetime(2026, 11, 9, 14, 55, tzinfo=UTC)
+        source = SourceFactice({("TTE.PA", "5m"): [brute(debut)], ("AIR.PA", "5m"): [brute(debut)]})
+        reel = Bougie.objects.bulk_create
+
+        def echoue_pour_tte(objets, **kw):
+            if objets and objets[0].valeur.ticker == "TTE.PA":
+                raise DatabaseError("disque plein")
+            return reel(objets, **kw)
+
+        with mock.patch.object(Bougie.objects, "bulk_create", side_effect=echoue_pour_tte),                 self.assertLogs("marche.releve", "WARNING"):
+            resultat = relever_cours(MILIEU, source)
+        self.assertEqual(Bougie.objects.get().valeur.ticker, "AIR.PA")
+        self.assertIn("TTE.PA", resultat["erreurs"])
