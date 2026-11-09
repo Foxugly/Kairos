@@ -25,9 +25,9 @@ def _motifs(valeur: Valeur) -> re.Pattern:
         if alias:
             morceaux.append(rf"(?<!\w){re.escape(alias)}(?!\w)")
     ticker = re.escape(valeur.ticker)
-    morceaux.append(rf"\${ticker}(?![\w.])")
+    morceaux.append(rf"\${ticker}(?!\w|\.\w)")
     morceaux.append(rf"\({ticker}\)")
-    morceaux.append(rf"\b(?:NASDAQ|NYSE):\s*{ticker}(?![\w.])")
+    morceaux.append(rf"\b(?:NASDAQ|NYSE):\s*{ticker}(?!\w|\.\w)")
     return re.compile("|".join(morceaux))  # sensible à la casse volontairement
 
 

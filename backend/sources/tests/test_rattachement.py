@@ -38,6 +38,12 @@ class ValeursCiteesTests(TestCase):
         self.assertEqual(self.tickers("NYSE:V monte"), {"V"})
         self.assertEqual(self.tickers("NVDA seul"), set())
 
+    def test_ticker_en_fin_de_phrase(self):
+        self.assertEqual(self.tickers("Wall Street : tout grimpe $NVDA."), {"NVDA"})
+        self.assertEqual(self.tickers("Cotation sur NASDAQ: AAPL."), {"AAPL"})
+        # `V` reste distinct d'un ticker à suffixe comme `V.PA`.
+        self.assertEqual(self.tickers("$V.PA recule"), set())
+
     def test_apostrophes_typographiques(self):
         self.assertEqual(self.tickers("L’Oréal publie ses comptes"), {"OR.PA"})
 

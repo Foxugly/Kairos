@@ -45,3 +45,18 @@ class LireFluxTests(SimpleTestCase):
     def test_contenu_html_illisible(self):
         with self.assertRaises(FluxIllisible):
             lire_flux(b"<html><body><p>Page de connexion</p></body></html>")
+
+    def test_date_de_repli_fournie(self):
+        repli = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
+        self.assertEqual(lire_flux(RSS, repli)[1].publiee, repli)
+
+    def test_titre_vide_apres_normalisation_et_url_trop_longue_ecartes(self):
+        contenu = (
+            '<rss version="2.0"><channel><title>x</title>'
+            '<item><title>!!! ...</title><link>https://e.test/1</link></item>'
+            f'<item><title>Long</title><link>https://e.test/{"a" * 1000}</link></item>'
+            '<item><title>Bon</title><link>https://e.test/3</link></item>'
+            "</channel></rss>"
+        ).encode()
+        with self.assertLogs("sources.rss", "WARNING"):
+            self.assertEqual([n.titre for n in lire_flux(contenu)], ["Bon"])

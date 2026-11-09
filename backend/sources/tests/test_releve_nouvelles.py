@@ -1,18 +1,21 @@
 from datetime import UTC, datetime
 
+from unittest import mock
+
+from django.db import DatabaseError
 from django.test import TestCase
 
 from marche.models import StatutValeur, Valeur
 from sources.models import FluxRss, Nouvelle
-from sources.rss import relever_nouvelles
+from sources.rss import NouvelleBrute, _enregistrer, empreinte, relever_nouvelles
 
 MAINTENANT = datetime(2026, 11, 9, 15, 0, tzinfo=UTC)
 
 
-def rss(*items):
+def rss(*items, date="Mon, 09 Nov 2026 14:00:00 GMT"):
     corps = "".join(
         f"<item><title>{t}</title><link>{u}</link><description>{d}</description>"
-        f"<pubDate>Mon, 09 Nov 2026 14:00:00 GMT</pubDate></item>"
+        f"<pubDate>{date}</pubDate></item>"
         for t, u, d in items
     )
     return f'<?xml version="1.0"?><rss version="2.0"><channel><title>x</title>{corps}</channel></rss>'.encode()
@@ -70,6 +73,41 @@ class ReleverNouvellesTests(TestCase):
     def test_flux_illisible_signale(self):
         res = relever_nouvelles(MAINTENANT, telecharger=lambda url: b"<html></html>")
         self.assertEqual(set(res["flux_en_erreur"]), {"A", "B"})
+
+    def test_meme_titre_deux_jours_differents_donne_deux_nouvelles(self):
+        self.b.actif = False
+        self.b.save()
+        for jour in ("Mon, 09 Nov 2026 14:00:00 GMT", "Tue, 10 Nov 2026 14:00:00 GMT"):
+            contenu = rss(("Wall Street ouvre en hausse", f"https://a.test/{jour[:3]}", ""), date=jour)
+            relever_nouvelles(MAINTENANT, telecharger=lambda url, c=contenu: c)
+        self.assertEqual(Nouvelle.objects.count(), 2)
+
+    def test_erreur_de_stockage_isolee_par_flux(self):
+        vrai = _enregistrer
+
+        def enregistrer(flux, brute, valeurs):
+            if flux == self.a:
+                raise DatabaseError("base indisponible")
+            return vrai(flux, brute, valeurs)
+
+        contenu = rss(("Apple annonce", "https://x.test/1", ""))
+        with mock.patch("sources.rss._enregistrer", enregistrer):
+            res = relever_nouvelles(MAINTENANT, telecharger=lambda url: contenu)
+        self.assertEqual(res["nouvelles"], 1)
+        self.assertEqual(list(res["flux_en_erreur"]), ["A"])
+        self.a.refresh_from_db()
+        self.assertIn("base indisponible", self.a.derniere_erreur)
+        self.assertIsNone(self.a.dernier_releve)
+
+    def test_doublon_concurrent_compte_comme_deja_connue(self):
+        brute = NouvelleBrute("https://x.test/1", "Apple", "", MAINTENANT)
+        with mock.patch.object(Nouvelle.objects, "filter") as filtre:
+            filtre.return_value.exists.return_value = False  # le contrôle préalable ne voit rien
+            Nouvelle.objects.create(
+                url=brute.url, empreinte=empreinte("Apple", MAINTENANT), titre="Apple",
+                publiee=MAINTENANT, flux=self.a,
+            )
+            self.assertEqual(_enregistrer(self.a, brute, []), 0)
 
 
 class FixtureDepartTests(TestCase):
