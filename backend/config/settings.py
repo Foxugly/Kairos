@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "marche",
     "sources",
     "cycle",
+    "analyse",
 ]
 
 MIDDLEWARE = [
