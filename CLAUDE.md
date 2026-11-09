@@ -51,8 +51,8 @@ et messages de commit en français. Dépôt public : aucun secret, aucune donné
   `manage.py backtest [--depuis AAAA-MM-JJ] [--portefeuille Technique]` : rejoue (`backtest.rejouer`, pur) les
   règles sur les bougies 1d en base (lancer `historique --jours 1900` avant pour 5 ans), enregistre un
   `ResultatBacktest` et affiche le rapport. Signal à la clôture J → ordre à l'ouverture de la séance suivante de
-  la valeur ; stops sur le plus bas du jour (sortie au stop, ou à l'ouverture en cas de gap) ; taux USD du jour
-  ou du dernier jour connu. Il applique le barème en vigueur **aujourd'hui** à toute la période.
+  la valeur ; stops sur le plus bas du jour (sortie au stop, ou à l'ouverture en cas de gap) ; ordres en séance
+  au taux USD journalier d'avant J, valorisation au taux de J (taux relevés en séance ignorés). Il applique le barème en vigueur **aujourd'hui** à toute la période.
 - Choix de stratégie (plan 2, à relire) : signaux une fois par jour sur bougies 1d clôturées, exécutés le jour
   suivant ; score +1 par signal d'achat, −1 par vente ; achat si score ≥ 2 et aucun signal de vente, vente si
   score ≤ −1 ; stop-loss −5 %, stop suiveur armé à +5 % et placé 5 % sous le plus haut ; exécution simulée avec
