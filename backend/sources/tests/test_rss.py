@@ -1,0 +1,47 @@
+from datetime import UTC, datetime
+
+from django.test import SimpleTestCase
+
+from sources.rss import FluxIllisible, lire_flux
+
+RSS = """<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>Marchés</title>
+<item><title>Apple bat les attentes</title><link>https://exemple.test/a</link>
+<description>&lt;p&gt;Résultats &lt;b&gt;solides&lt;/b&gt; au trimestre.&lt;/p&gt;</description>
+<pubDate>Mon, 09 Nov 2026 14:30:00 +0100</pubDate></item>
+<item><title>Sans date</title><link>https://exemple.test/b</link></item>
+</channel></rss>""".encode()
+
+ATOM = """<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Flux</title>
+<entry><title>Nvidia grimpe</title><link href="https://exemple.test/c"/>
+<summary>Un &lt;a href="x"&gt;résumé&lt;/a&gt; court</summary>
+<updated>2026-11-09T10:00:00Z</updated></entry></feed>""".encode()
+
+
+class LireFluxTests(SimpleTestCase):
+    def test_rss(self):
+        nouvelles = lire_flux(RSS)
+        self.assertEqual(len(nouvelles), 2)
+        n = nouvelles[0]
+        self.assertEqual(n.titre, "Apple bat les attentes")
+        self.assertEqual(n.url, "https://exemple.test/a")
+        self.assertEqual(n.publiee, datetime(2026, 11, 9, 13, 30, tzinfo=UTC))
+        self.assertEqual(n.resume, "Résultats solides au trimestre.")
+
+    def test_entree_sans_date_prend_la_date_de_reception(self):
+        avant = datetime.now(UTC)
+        n = lire_flux(RSS)[1]
+        self.assertGreaterEqual(n.publiee, avant)
+        self.assertEqual(n.resume, "")
+
+    def test_atom(self):
+        (n,) = lire_flux(ATOM)
+        self.assertEqual(n.titre, "Nvidia grimpe")
+        self.assertEqual(n.url, "https://exemple.test/c")
+        self.assertEqual(n.publiee, datetime(2026, 11, 9, 10, 0, tzinfo=UTC))
+        self.assertEqual(n.resume, "Un résumé court")
+
+    def test_contenu_html_illisible(self):
+        with self.assertRaises(FluxIllisible):
+            lire_flux(b"<html><body><p>Page de connexion</p></body></html>")

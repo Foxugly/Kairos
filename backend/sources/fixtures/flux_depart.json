@@ -1,0 +1,102 @@
+[
+  {
+    "model": "sources.fluxrss",
+    "pk": 1,
+    "fields": {
+      "nom": "Le Monde - Économie",
+      "url": "https://www.lemonde.fr/economie/rss_full.xml",
+      "langue": "fr",
+      "actif": true
+    }
+  },
+  {
+    "model": "sources.fluxrss",
+    "pk": 2,
+    "fields": {
+      "nom": "Le Monde - Entreprises",
+      "url": "https://www.lemonde.fr/entreprises/rss_full.xml",
+      "langue": "fr",
+      "actif": true
+    }
+  },
+  {
+    "model": "sources.fluxrss",
+    "pk": 3,
+    "fields": {
+      "nom": "Le Figaro - Économie",
+      "url": "https://www.lefigaro.fr/rss/figaro_economie.xml",
+      "langue": "fr",
+      "actif": true
+    }
+  },
+  {
+    "model": "sources.fluxrss",
+    "pk": 4,
+    "fields": {
+      "nom": "BFM Business",
+      "url": "https://www.bfmtv.com/rss/economie/",
+      "langue": "fr",
+      "actif": true
+    }
+  },
+  {
+    "model": "sources.fluxrss",
+    "pk": 5,
+    "fields": {
+      "nom": "France 24 - Éco et tech",
+      "url": "https://www.france24.com/fr/%C3%A9co-tech/rss",
+      "langue": "fr",
+      "actif": true
+    }
+  },
+  {
+    "model": "sources.fluxrss",
+    "pk": 6,
+    "fields": {
+      "nom": "CNBC - Finance",
+      "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664",
+      "langue": "en",
+      "actif": true
+    }
+  },
+  {
+    "model": "sources.fluxrss",
+    "pk": 7,
+    "fields": {
+      "nom": "MarketWatch - Marketpulse",
+      "url": "https://feeds.content.dowjones.io/public/rss/mw_marketpulse",
+      "langue": "en",
+      "actif": true
+    }
+  },
+  {
+    "model": "sources.fluxrss",
+    "pk": 8,
+    "fields": {
+      "nom": "WSJ - Markets",
+      "url": "https://feeds.content.dowjones.io/public/rss/RSSMarketsMain",
+      "langue": "en",
+      "actif": true
+    }
+  },
+  {
+    "model": "sources.fluxrss",
+    "pk": 9,
+    "fields": {
+      "nom": "BBC - Business",
+      "url": "https://feeds.bbci.co.uk/news/business/rss.xml",
+      "langue": "en",
+      "actif": true
+    }
+  },
+  {
+    "model": "sources.fluxrss",
+    "pk": 10,
+    "fields": {
+      "nom": "The Guardian - Business",
+      "url": "https://www.theguardian.com/uk/business/rss",
+      "langue": "en",
+      "actif": true
+    }
+  }
+]
