@@ -44,6 +44,12 @@ class ValeursCiteesTests(TestCase):
         # `V` reste distinct d'un ticker à suffixe comme `V.PA`.
         self.assertEqual(self.tickers("$V.PA recule"), set())
 
+    def test_forme_parentheses_ignoree_pour_ticker_d_une_lettre(self):
+        # « (C) 2026 Reuters » ne doit pas citer Citigroup, ni « (V) » Visa.
+        self.assertEqual(self.tickers("(V) monte"), set())
+        self.assertEqual(self.tickers("(C) 2026 Reuters"), set())
+        self.assertEqual(self.tickers("$V monte"), {"V"})
+
     def test_apostrophes_typographiques(self):
         self.assertEqual(self.tickers("L’Oréal publie ses comptes"), {"OR.PA"})
 

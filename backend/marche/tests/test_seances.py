@@ -21,7 +21,11 @@ class EnSeanceTests(SimpleTestCase):
     def test_decalage_d_heure(self):
         # New York est déjà à l'heure d'été (09:45), Paris encore à l'heure d'hiver (17:45).
         self.assertTrue(en_seance("NYSE", utc(2026, 3, 9, 13, 45)))
+        self.assertTrue(en_seance("XPAR", utc(2026, 3, 9, 16, 15)))  # 17:15 à Paris
         self.assertFalse(en_seance("XPAR", utc(2026, 3, 9, 16, 45)))
+        # Fin octobre : New York encore à l'heure d'été, Paris déjà à l'heure d'hiver.
+        self.assertTrue(en_seance("NYSE", utc(2026, 10, 26, 13, 45)))
+        self.assertTrue(en_seance("XPAR", utc(2026, 10, 26, 16, 15)))
 
     def test_bornes(self):
         self.assertTrue(en_seance("XPAR", utc(2026, 11, 9, 8, 0)))  # ouverture 09:00 incluse

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest import mock
 
@@ -105,6 +105,53 @@ class RelevéCinqMinutesTests(TestCase):
         self.assertFalse(TauxChange.objects.exists())
 
 
+class DepartPlafonneTests(TestCase):
+    def test_derniere_bougie_tres_ancienne_plafonnee_a_deux_jours(self):
+        ancienne = valeur("AIR.PA", "XPAR", "EUR")
+        Bougie.objects.create(
+            valeur=ancienne, intervalle="5m", debut=MILIEU - timedelta(days=90),
+            ouverture=1, haut=1, bas=1, cloture=1, volume=1,
+        )
+        valeur("TTE.PA", "XPAR", "EUR")
+        source = SourceFactice()
+        relever_cours(MILIEU, source)
+        self.assertEqual(source.appels[0][2], MILIEU - timedelta(days=2))
+
+
+class TauxEnCacheTests(TestCase):
+    def test_taux_recent_non_redemande(self):
+        valeur("AAPL", "NASDAQ", "USD")
+        TauxChange.objects.create(devise="USD", instant=MILIEU - timedelta(minutes=10), taux=Decimal("0.9"))
+        source = SourceFactice()
+        source.taux_eur = mock.Mock(return_value=Decimal("0.8"))
+        relever_cours(MILIEU, source)
+        source.taux_eur.assert_not_called()
+        self.assertEqual(TauxChange.objects.count(), 1)
+
+    def test_taux_ancien_redemande(self):
+        valeur("AAPL", "NASDAQ", "USD")
+        TauxChange.objects.create(devise="USD", instant=MILIEU - timedelta(minutes=45), taux=Decimal("0.9"))
+        relever_cours(MILIEU, SourceFactice())
+        self.assertEqual(TauxChange.objects.count(), 2)
+
+
+class PanneTotaleTests(TestCase):
+    def test_toutes_les_valeurs_en_echec_journalise_une_erreur(self):
+        valeur("TTE.PA", "XPAR", "EUR")
+        valeur("AIR.PA", "XPAR", "EUR")
+        source = SourceFactice(erreurs={"TTE.PA": "x", "AIR.PA": "y"})
+        with self.assertLogs("marche.releve", "ERROR") as cm:
+            relever_cours(MILIEU, source)
+        self.assertEqual(len(cm.records), 1)
+
+    def test_echec_partiel_pas_d_erreur(self):
+        valeur("TTE.PA", "XPAR", "EUR")
+        valeur("AIR.PA", "XPAR", "EUR")
+        source = SourceFactice(erreurs={"TTE.PA": "x"})
+        with self.assertNoLogs("marche.releve", "ERROR"):
+            relever_cours(MILIEU, source)
+
+
 class RelevéJournalierTests(TestCase):
     # 17:00 UTC = 18:00 à Paris : fermé depuis 30 min, bougie du jour à relever.
     APRES = datetime(2026, 11, 9, 17, 0, tzinfo=UTC)
@@ -131,6 +178,20 @@ class RelevéJournalierTests(TestCase):
         relever_cours(datetime(2026, 11, 9, 10, 0, tzinfo=UTC), source)  # en séance
         relever_cours(datetime(2026, 11, 14, 17, 0, tzinfo=UTC), source)  # samedi
         self.assertNotIn("1d", [a[1] for a in source.appels])
+
+    def test_nyse_pas_de_1d_avant_30_minutes_apres_la_fermeture(self):
+        valeur("KO", "NYSE", "USD")
+        source = SourceFactice()
+        relever_cours(datetime(2026, 11, 9, 21, 10, tzinfo=UTC), source)  # 16:10 à New York
+        self.assertNotIn("1d", [a[1] for a in source.appels])
+        relever_cours(datetime(2026, 11, 9, 21, 35, tzinfo=UTC), source)  # 16:35
+        self.assertIn("1d", [a[1] for a in source.appels])
+
+    def test_jour_ferie_pas_de_1d_hors_de_la_fenetre(self):
+        valeur("TTE.PA", "XPAR", "EUR")
+        source = SourceFactice()
+        relever_cours(datetime(2026, 11, 9, 20, 0, tzinfo=UTC), source)  # 21:00 à Paris, fenêtre passée
+        self.assertEqual(source.appels, [])
 
     def test_nyse_une_fois_la_bougie_du_jour_enregistree(self):
         valeur("KO", "NYSE", "USD")

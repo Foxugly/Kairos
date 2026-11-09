@@ -81,22 +81,22 @@ def telecharger(url: str) -> bytes:
     """Télécharge un flux : http(s) seulement, 5 redirections et 5 Mo au plus."""
     if urlparse(url).scheme not in ("http", "https"):
         raise ValueError(f"schéma refusé (http ou https attendu) : {url}")
-    session = requests.Session()
-    session.max_redirects = REDIRECTIONS_MAX
-    with session.get(
-        url, stream=True, timeout=(5, 15), headers={"User-Agent": USER_AGENT}
-    ) as reponse:
-        if reponse.status_code != 200:
-            raise requests.HTTPError(f"statut HTTP {reponse.status_code}")
-        annonce = reponse.headers.get("Content-Length", "")
-        if annonce.isdigit() and int(annonce) > TAILLE_MAX:
-            raise ValueError(f"flux trop gros : limite de {TAILLE_MAX} octets")
-        contenu = bytearray()
-        for morceau in reponse.iter_content(chunk_size=65536):
-            contenu += morceau
-            if len(contenu) > TAILLE_MAX:
+    with requests.Session() as session:
+        session.max_redirects = REDIRECTIONS_MAX
+        with session.get(
+            url, stream=True, timeout=(5, 15), headers={"User-Agent": USER_AGENT}
+        ) as reponse:
+            if reponse.status_code != 200:
+                raise requests.HTTPError(f"statut HTTP {reponse.status_code}")
+            annonce = reponse.headers.get("Content-Length", "")
+            if annonce.isdigit() and int(annonce) > TAILLE_MAX:
                 raise ValueError(f"flux trop gros : limite de {TAILLE_MAX} octets")
-        return bytes(contenu)
+            contenu = bytearray()
+            for morceau in reponse.iter_content(chunk_size=65536):
+                contenu += morceau
+                if len(contenu) > TAILLE_MAX:
+                    raise ValueError(f"flux trop gros : limite de {TAILLE_MAX} octets")
+            return bytes(contenu)
 
 
 def _normaliser_titre(titre: str) -> str:
@@ -119,7 +119,9 @@ def relever_nouvelles(maintenant: datetime, telecharger: Callable[[str], bytes] 
     valeurs = list(Valeur.objects.actives())
     total = 0
     en_erreur: dict[str, str] = {}
-    for flux in FluxRss.objects.filter(actif=True):
+    flux_actifs = list(FluxRss.objects.filter(actif=True))
+    nb_flux = len(flux_actifs)
+    for flux in flux_actifs:
         try:
             brutes = lire_flux(telecharger(flux.url), maintenant)
             creees = sum(_enregistrer(flux, brute, valeurs) for brute in brutes)
@@ -131,6 +133,9 @@ def relever_nouvelles(maintenant: datetime, telecharger: Callable[[str], bytes] 
             continue
         total += creees
         FluxRss.objects.filter(pk=flux.pk).update(dernier_releve=maintenant, derniere_erreur="")
+    if en_erreur and len(en_erreur) == nb_flux:
+        # Panne totale : une erreur (et non un avertissement) pour que Sentry crée l'événement.
+        logger.error("Relevé des nouvelles : tous les flux actifs ont échoué (%s)", ", ".join(en_erreur))
     return {"nouvelles": total, "flux_en_erreur": en_erreur}
 
 

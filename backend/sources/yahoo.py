@@ -11,6 +11,8 @@ from .cours import BougieBrute
 logger = logging.getLogger(__name__)
 
 _CHAMPS = ["Open", "High", "Low", "Close", "Volume"]
+_TIMEOUT = 10  # secondes, par requête Yahoo
+_THREADS = 4
 _QUATRE_DECIMALES = Decimal("0.0001")
 
 
@@ -33,7 +35,7 @@ class SourceYahoo:
         try:
             donnees = yfinance.download(
                 tickers, group_by="ticker", interval=intervalle, start=depuis,
-                progress=False, auto_adjust=False,
+                progress=False, auto_adjust=False, timeout=_TIMEOUT, threads=_THREADS,
             )
         except Exception as exc:  # réseau, limitation, format : jamais d'exception vers l'appelant
             logger.warning("Yahoo : échec du téléchargement (%s)", exc)
@@ -75,7 +77,7 @@ class SourceYahoo:
             raise ValueError(f"Devise non gérée : {devise}")
         donnees = yfinance.download(
             "EURUSD=X", period="5d", interval="1d", progress=False, auto_adjust=False,
-            group_by="ticker",
+            group_by="ticker", timeout=_TIMEOUT,
         )
         cours = donnees["EURUSD=X"]["Close"].dropna()
         if cours.empty:

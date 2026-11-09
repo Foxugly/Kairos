@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 _DELAI_APRES_FERMETURE = timedelta(minutes=30)
 _FERMETURE_PAR_DEFAUT = time(17, 30)
+_FENETRE_JOURNALIERE = timedelta(minutes=90)  # durée pendant laquelle la 1d est tentée
+_VALIDITE_TAUX = timedelta(minutes=30)
 _CHAMPS_MAJ = ["ouverture", "haut", "bas", "cloture", "volume"]
 
 
@@ -25,11 +27,20 @@ def _dans_la_fenetre(place: str, instant: datetime) -> bool:
 
 
 def _journee_a_relever(valeur: Valeur, maintenant: datetime) -> bool:
-    """Vrai si la place est close pour la journée (jour ouvré, après la fermeture) et sans bougie `1d` du jour."""
+    """Vrai si la clôture est définitive (30 min après la fermeture) et sans bougie `1d` du jour.
+
+    La clôture est provisoire juste après la fermeture (enchère, retard de la source). La 1d n'est
+    tentée que pendant 90 min à partir de là : un jour férié coûte quelques requêtes, pas un appel
+    à chaque cycle jusqu'à minuit (un jour manqué est rattrapé le lendemain, fenêtre de 30 jours).
+    """
     local = maintenant.astimezone(ZoneInfo(FUSEAU_PLACE[valeur.place]))
     if local.weekday() >= 5:
         return False
-    if local.time() < HORAIRES_PLACE.get(valeur.place, (None, _FERMETURE_PAR_DEFAUT))[1]:
+    fermeture = HORAIRES_PLACE.get(valeur.place, (None, _FERMETURE_PAR_DEFAUT))[1]
+    apres = timedelta(hours=local.hour, minutes=local.minute) - timedelta(
+        hours=fermeture.hour, minutes=fermeture.minute
+    )
+    if not _DELAI_APRES_FERMETURE <= apres < _DELAI_APRES_FERMETURE + _FENETRE_JOURNALIERE:
         return False
     # Yahoo date la bougie journalière par la date locale de la séance, sans fuseau : on la lit
     # comme minuit UTC de ce jour (convention des bougies `1d`), quelle que soit la place.
@@ -86,7 +97,9 @@ def relever_cours(maintenant: datetime, source: SourceCours | None = None) -> di
         departs = []
         for v in en_cours:
             derniere = v.bougies.filter(intervalle="5m").order_by("-debut").first()
-            departs.append(derniere.debut if derniere else maintenant - timedelta(days=2))
+            # Plafonné à 2 jours : au-delà de 60 jours Yahoo refuse l'intraday pour tout le lot.
+            plancher = maintenant - timedelta(days=2)
+            departs.append(max(derniere.debut, plancher) if derniere else plancher)
         par_ticker = source.bougies([v.ticker for v in en_cours], "5m", min(departs))
         erreurs.update(source.erreurs)
         total += _enregistrer_isole(en_cours, "5m", par_ticker, erreurs)
@@ -100,7 +113,10 @@ def relever_cours(maintenant: datetime, source: SourceCours | None = None) -> di
         total += _enregistrer_isole(journalieres, "1d", par_ticker, erreurs)
 
     interrogees = en_cours + [v for v in journalieres if v not in en_cours]
-    if any(v.devise == "USD" for v in interrogees):
+    taux_recent = TauxChange.objects.filter(
+        devise="USD", instant__gt=maintenant - _VALIDITE_TAUX
+    ).exists()
+    if any(v.devise == "USD" for v in interrogees) and not taux_recent:
         try:
             TauxChange.objects.update_or_create(
                 devise="USD", instant=maintenant, defaults={"taux": source.taux_eur("USD")}
@@ -109,4 +125,7 @@ def relever_cours(maintenant: datetime, source: SourceCours | None = None) -> di
             logger.warning("Taux USD indisponible (%s)", exc)
             erreurs["USD"] = str(exc)
 
+    if interrogees and all(v.ticker in erreurs for v in interrogees):
+        # Panne totale : une erreur (et non un avertissement) pour que Sentry crée l'événement.
+        logger.error("Relevé des cours : les %d valeurs interrogées ont toutes échoué", len(interrogees))
     return {"bougies": total, "valeurs": len(interrogees), "erreurs": erreurs}

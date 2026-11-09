@@ -36,6 +36,7 @@ def _ouvrir(maintenant: datetime) -> Cycle | None:
     """Contrôle + création sous verrou (court) ; None si un cycle récent tourne déjà."""
     with transaction.atomic():
         # Verrou de ligne sur PostgreSQL (sans effet sur SQLite, où les écritures sont déjà sérialisées).
+        Verrou.objects.get_or_create(pk=1)  # la ligne peut manquer (flush, restauration)
         Verrou.objects.select_for_update().get(pk=1)
         en_cours = Cycle.objects.filter(statut=StatutCycle.EN_COURS)
         if en_cours.filter(debut__gt=maintenant - DUREE_MAX_CYCLE).exists():

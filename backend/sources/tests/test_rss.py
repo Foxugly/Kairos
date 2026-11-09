@@ -99,6 +99,7 @@ class TelechargerTests(SimpleTestCase):
 
     @mock.patch("sources.rss.requests.Session")
     def test_content_length_trop_grand(self, session):
+        session.return_value.__enter__.return_value = session.return_value
         session.return_value.get.return_value = fausse_reponse(
             [b"x"], {"Content-Length": str(TAILLE_MAX + 1)}
         )
@@ -107,6 +108,7 @@ class TelechargerTests(SimpleTestCase):
 
     @mock.patch("sources.rss.requests.Session")
     def test_lecture_interrompue_au_dela_de_la_limite(self, session):
+        session.return_value.__enter__.return_value = session.return_value
         session.return_value.get.return_value = fausse_reponse(
             [b"x" * TAILLE_MAX, b"y"]
         )
@@ -115,8 +117,10 @@ class TelechargerTests(SimpleTestCase):
 
     @mock.patch("sources.rss.requests.Session")
     def test_lecture_normale_et_parametres(self, session):
+        session.return_value.__enter__.return_value = session.return_value
         session.return_value.get.return_value = fausse_reponse([b"ab", b"cd"])
         self.assertEqual(telecharger("https://e.test/rss"), b"abcd")
         self.assertEqual(session.return_value.max_redirects, 5)
         _, kwargs = session.return_value.get.call_args
         self.assertEqual((kwargs["stream"], kwargs["timeout"]), (True, (5, 15)))
+        session.return_value.__exit__.assert_called_once()  # session fermée

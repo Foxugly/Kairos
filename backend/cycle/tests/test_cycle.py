@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from cycle import deroulement
-from cycle.models import Cycle, StatutCycle
+from cycle.models import Cycle, StatutCycle, Verrou
 
 
 class LancerTests(TestCase):
@@ -27,6 +27,13 @@ class LancerTests(TestCase):
         self.assertEqual(cycle.statut, StatutCycle.TERMINE)
         self.assertEqual(cycle.journal, {"a": {"n": 1}, "b": {"n": 2}})
         self.assertIsNotNone(cycle.fin)
+
+    def test_ligne_verrou_manquante_recreee(self):
+        Verrou.objects.all().delete()
+        with mock.patch.object(deroulement, "ETAPES", []):
+            cycle = deroulement.lancer(timezone.now())
+        self.assertEqual(cycle.statut, StatutCycle.TERMINE)
+        self.assertTrue(Verrou.objects.filter(pk=1).exists())
 
     def test_etape_qui_leve_n_arrete_pas_les_suivantes(self):
         def a(maintenant):

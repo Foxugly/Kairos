@@ -101,6 +101,12 @@ class SourceYahooTests(SimpleTestCase):
         resultat = SourceYahoo().bougies(["AAPL"], "1d", DEPUIS)
         self.assertEqual(resultat["AAPL"][0].debut, datetime(2026, 11, 9, tzinfo=UTC))
 
+    def test_download_avec_timeout_et_threads(self, download):
+        download.return_value = telechargement(AAPL=table([("2026-11-09 15:00", 1, 1, 1, 1, 1)]))
+        SourceYahoo().bougies(["AAPL"], "5m", DEPUIS)
+        _, kwargs = download.call_args
+        self.assertEqual((kwargs["timeout"], kwargs["threads"]), (10, 4))
+
     def test_taux_eur(self, download):
         download.return_value = telechargement(**{
             "EURUSD=X": table([("2026-11-09", 1.25, 1.25, 1.25, 1.25, 0)])

@@ -70,6 +70,20 @@ class ReleverNouvellesTests(TestCase):
             relever_nouvelles(MAINTENANT, telecharger=lambda url: contenu)
         self.assertEqual(Nouvelle.objects.count(), 1)
 
+    def test_panne_totale_journalise_une_erreur(self):
+        with self.assertLogs("sources.rss", "ERROR") as cm:
+            relever_nouvelles(MAINTENANT, telecharger=mock.Mock(side_effect=OSError("panne")))
+        self.assertEqual(len(cm.records), 1)
+
+    def test_panne_partielle_sans_erreur(self):
+        def telecharger(url):
+            if url == self.a.url:
+                raise OSError("panne")
+            return rss(("Apple", "https://b.test/3", ""))
+
+        with self.assertNoLogs("sources.rss", "ERROR"):
+            relever_nouvelles(MAINTENANT, telecharger=telecharger)
+
     def test_flux_illisible_signale(self):
         res = relever_nouvelles(MAINTENANT, telecharger=lambda url: b"<html></html>")
         self.assertEqual(set(res["flux_en_erreur"]), {"A", "B"})
