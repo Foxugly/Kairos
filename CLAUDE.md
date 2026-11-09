@@ -23,6 +23,11 @@ et messages de commit en français. Dépôt public : aucun secret, aucune donné
 - `settings.UNIVERS_MAX` (100) : taille maximale de l'univers de titres suivi. `settings.VERSION` vient de
   `KAIROS_VERSION`.
 
+- `marche/` — `Valeur`, `Bougie`, `TauxChange`, séances. `manage.py proposer_univers [--fichier]` charge
+  `marche/donnees/univers.csv` (8 valeurs imposées + S&P 100 + Euro Stoxx 50, tickers Yahoo, sans GOOG) ; relancée,
+  elle met à jour nom/alias mais ne touche jamais au statut. Relevé des indices : 2026-11-09 (Wikipedia, composition
+  au 2026-09-21) ; `BK` = BNY. À rafraîchir à la main lors des révisions trimestrielles.
+
 ## Intégration continue
 
 `.github/workflows/ci.yml` : tests sur PostgreSQL 16 (image ECR en cache, jamais un `services:`), migrations,
