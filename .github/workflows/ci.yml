@@ -1,0 +1,183 @@
+name: CI
+
+# Sur une PR : ce fichier seul. Sur un push vers main : il sera appelé par
+# deploy.yml (`uses: ./.github/workflows/ci.yml`, plan 5), une seule fois — un
+# déclencheur `push` ici ferait tourner la suite deux fois. Le cache de l'image PostgreSQL tient
+# quand même sous refs/heads/main : un workflow appelé hérite du `github.ref`
+# de l'appelant (le push), donc la portée de son cache est celle de main, que
+# les branches de PR peuvent lire.
+on:
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  tests:
+    # La production tourne sur PostgreSQL 16 : la suite aussi. Ne jamais juger
+    # une migration sur SQLite (OPERATIONS.md §3.13) — SQLite accepte ce que
+    # PostgreSQL refuse. Python 3.12, celui d'Ubuntu 24.04 sur le serveur.
+    # Réglages de production (sans DJANGO_DEBUG), sauf la redirection HTTPS,
+    # que le client de test ne suit pas.
+    #
+    # PostgreSQL n'est pas un `service` : un service se télécharge avant toute
+    # étape, donc sans cache possible, et le registre refuse parfois (Docker Hub
+    # le 2026-10-09, « Data limit exceeded » sur public.ecr.aws le 2026-10-11 —
+    # la CI échouait avant le moindre test ; encore le 2026-10-31). L'image vit
+    # dans le cache d'Actions : un téléchargement par mois au plus, trois
+    # tentatives sur le miroir AWS puis celui de Google, et l'image du mois
+    # précédent si les deux refusent encore.
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_IMAGE: public.ecr.aws/docker/library/postgres:16  # miroir AWS de l'image officielle
+      POSTGRES_IMAGE_SECOURS: mirror.gcr.io/library/postgres:16  # miroir Google, si AWS refuse
+      DB_ENGINE: postgresql
+      DB_NAME: kairos
+      DB_USER: kairos
+      DB_PASSWORD: kairos
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+      SECRET_KEY: ci-cle-secrete-longue-et-aleatoire-uniquement-pour-les-tests-0123456789
+      ALLOWED_HOSTS: testserver,localhost
+      SECURE_SSL_REDIRECT: "False"
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Clé du cache de l'image PostgreSQL (une par mois)
+        id: cle
+        run: echo "mois=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
+      - name: Image PostgreSQL depuis le cache
+        id: cache-postgres
+        uses: actions/cache/restore@v6
+        with:
+          path: /tmp/postgres-16.tar
+          key: postgres-16-${{ steps.cle.outputs.mois }}
+          restore-keys: postgres-16-
+
+      - name: Image PostgreSQL depuis le registre (si le cache n'a pas celle du mois)
+        id: telechargement
+        if: steps.cache-postgres.outputs.cache-hit != 'true'
+        run: |
+          for essai in 1 2 3; do
+            for image in "$POSTGRES_IMAGE" "$POSTGRES_IMAGE_SECOURS"; do
+              if docker pull "$image"; then
+                # L'étape suivante démarre toujours $POSTGRES_IMAGE.
+                docker tag "$image" "$POSTGRES_IMAGE"
+                docker save "$POSTGRES_IMAGE" -o /tmp/postgres-16.tar
+                echo "neuve=true" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+            done
+            sleep $((essai * 20))
+          done
+          if [ -f /tmp/postgres-16.tar ]; then
+            echo "::warning::Registre indisponible : image du cache d'un mois précédent."
+          else
+            echo "::error::Registre indisponible et aucune image en cache."
+            exit 1
+          fi
+
+      - name: Mettre l'image du mois en cache
+        if: steps.telechargement.outputs.neuve == 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: /tmp/postgres-16.tar
+          key: postgres-16-${{ steps.cle.outputs.mois }}
+
+      - name: Démarrer PostgreSQL 16
+        run: |
+          docker load -i /tmp/postgres-16.tar
+          docker run -d --name postgres -p 5432:5432 \
+            -e POSTGRES_USER=kairos -e POSTGRES_PASSWORD=kairos -e POSTGRES_DB=kairos \
+            "$POSTGRES_IMAGE"
+          for i in $(seq 1 30); do
+            if docker exec postgres pg_isready -U kairos -h 127.0.0.1 >/dev/null 2>&1; then
+              echo "PostgreSQL prêt."; exit 0
+            fi
+            sleep 2
+          done
+          docker logs postgres
+          echo "::error::PostgreSQL ne répond pas."; exit 1
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Dépendances
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Aucune migration oubliée
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Contrôles de déploiement
+        run: python manage.py check --deploy --fail-level ERROR
+
+      - name: Suite de tests (PostgreSQL 16)
+        run: python manage.py test -v 2
+
+  # Linter (audit du 2026-10-18, M10) : ruff à la version de la flotte
+  # (requirements-dev.txt), règles dans ruff.toml.
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install ruff (version figée)
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+  # Audit des dépendances Python contre la base d'avis PyPI (OSV) : le job échoue
+  # sur toute vulnérabilité connue. pip-audit résout l'arbre complet, dépendances
+  # transitives comprises, dans un venv jetable ; outil épinglé, cache pip.
+  # Exceptions : .pip-audit-ignore, une ligne « ID AAAA-MM-JJ # raison » ;
+  # une exception expirée fait échouer le job — à réexaminer, pas à oublier.
+  pip-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - name: Install pip-audit (version figée)
+        run: python -m pip install pip-audit==2.10.1
+
+      - name: Audit des dépendances
+        run: |
+          ignore=()
+          if [ -f .pip-audit-ignore ]; then
+            today=$(date -u +%F)
+            while read -r id expiry _ || [ -n "$id" ]; do
+              case "$id" in ''|'#'*) continue ;; esac
+              if [[ ! "$expiry" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+                echo "::error::.pip-audit-ignore : date d'expiration manquante pour $id"; exit 1
+              fi
+              if [[ "$expiry" < "$today" ]]; then
+                echo "::error::.pip-audit-ignore : l'exception $id a expiré le $expiry"; exit 1
+              fi
+              ignore+=(--ignore-vuln "$id")
+            done < .pip-audit-ignore
+          fi
+          pip-audit --progress-spinner off -r requirements.txt "${ignore[@]}"

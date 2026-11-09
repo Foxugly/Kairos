@@ -1,0 +1,30 @@
+# Dependabot — configuration de flotte Foxugly (voir QuizOnline pour l'historique) :
+# mises à jour hebdomadaires groupées, majeures ignorées (une majeure est une
+# décision, pas une routine) ; les correctifs de sécurité passent quand même.
+version: 2
+
+updates:
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      python:
+        patterns: ["*"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      # ruff reste à la version de la flotte (OPERATIONS.md §3.22) : une montée
+      # se décide pour toute la flotte à la fois, pas dépôt par dépôt.
+      - dependency-name: "ruff"
+        versions: [">=0.17"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      actions:
+        patterns: ["*"]
