@@ -506,6 +506,34 @@ class ValeurDesactiveeDetenueTests(Base):
         self.assertFalse(Position.objects.exists())
 
 
+class SansBaremeTests(Base):
+    def setUp(self):
+        super().setUp()
+        self.demarrer()
+        Portefeuille.objects.filter(pk=self.p.pk).update(bareme_broker="inconnu")
+
+    def test_decision_refusee_sans_annuler_le_passage(self):
+        d = self.decision(self.tte)
+        self.position(self.aapl, prix="200", taux="0.9")
+        bougie(self.tte, MARDI_MATIN - timedelta(minutes=5), "100")
+        resultat = executer(MARDI_MATIN)["portefeuilles"]["Technique"]
+        self.assertNotIn("erreur", resultat)
+        d.refresh_from_db()
+        self.assertEqual(d.action, ActionDecision.REFUSER)
+        self.assertIn("aucun barème inconnu en vigueur", d.motif)
+        # Le passage n'est pas annulé : la valorisation est enregistrée.
+        self.assertTrue(Valorisation.objects.exists())
+
+    def test_stop_refuse(self):
+        self.position(self.tte)
+        bougie(self.tte, MARDI_MATIN - timedelta(minutes=5), "94")
+        resultat = executer(MARDI_MATIN)["portefeuilles"]["Technique"]
+        self.assertNotIn("erreur", resultat)
+        refus = Decision.objects.get(action=ActionDecision.REFUSER)
+        self.assertIn("aucun barème inconnu en vigueur", refus.motif)
+        self.assertIsNone(Position.objects.get().fermee_le)
+
+
 class IsolementTests(Base):
     def test_un_portefeuille_en_panne_n_arrete_pas_les_autres(self):
         Portefeuille.objects.create(nom="Casse", indice=self.iwda)

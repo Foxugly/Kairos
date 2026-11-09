@@ -59,8 +59,8 @@ class Command(BaseCommand):
         # Le barème du jour vaut pour toute la période : aucun barème historique n'est saisi.
         try:
             bareme = Bareme.en_vigueur(p.bareme_broker, date.today())
-        except IndexError:
-            raise CommandError(f"aucun barème {p.bareme_broker} en vigueur") from None
+        except Bareme.DoesNotExist as erreur:
+            raise CommandError(str(erreur)) from None
 
         valeurs = list(Valeur.objects.actives().filter(reference=False)) + [p.indice]
         series = self._series(valeurs, depuis)

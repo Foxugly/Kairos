@@ -12,7 +12,7 @@ class BaremeTests(TestCase):
         nouveau = Bareme.objects.create(broker="test", nom="Nouveau", valide_depuis=date(2024, 6, 1))
         self.assertEqual(Bareme.en_vigueur("test", date(2023, 12, 31)), ancien)
         self.assertEqual(Bareme.en_vigueur("test", date(2024, 6, 1)), nouveau)
-        with self.assertRaises(IndexError):
+        with self.assertRaisesMessage(Bareme.DoesNotExist, "aucun barème test en vigueur le 2019-01-01"):
             Bareme.en_vigueur("test", date(2019, 1, 1))
 
     def test_donnees_fige(self):

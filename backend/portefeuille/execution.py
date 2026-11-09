@@ -31,6 +31,8 @@ logger = logging.getLogger(__name__)
 # Toutes les places européennes et américaines sont fermées, et leur bougie 1d relevée.
 HEURE_DECISION = time(22, 30)
 HISTORIQUE = 120  # bougies 1d lues pour les signaux
+# Erreurs de frais (règle de courtage manquante, aucun barème en vigueur) : refus motivé de l'ordre.
+ERREURS_FRAIS = (ValueError, Bareme.DoesNotExist)
 
 
 def prochain_jour_ouvre(jour: date) -> date:
@@ -242,7 +244,7 @@ class _Passage:
                 if ex.montant_eur + ex.frais.total <= p.capital_initial:
                     break
                 quantite -= 1
-        except ValueError as erreur:
+        except ERREURS_FRAIS as erreur:
             decision = Decision(
                 portefeuille=p, valeur=p.indice, instant=self.maintenant,
                 action=ActionDecision.ACHETER, motif="achat de l'indice de comparaison",
@@ -270,7 +272,7 @@ class _Passage:
         """Exécution par le broker ; une erreur de frais devient un refus enregistré."""
         try:
             ex = self.broker.executer(self._demande(sens, ticker, quantite))
-        except ValueError as erreur:
+        except ERREURS_FRAIS as erreur:
             self._refuser(decision, str(erreur), une_fois_par_jour)
             return None
         if sens == SensOrdre.ACHAT and ex.montant_eur + ex.frais.total > self.p.liquidites:
@@ -361,7 +363,12 @@ class _Passage:
         if not cotables:
             return
 
-        bareme = Bareme.en_vigueur(self.p.bareme_broker, self.jour).donnees()
+        try:
+            bareme = Bareme.en_vigueur(self.p.bareme_broker, self.jour).donnees()
+        except Bareme.DoesNotExist as erreur:
+            for d in cotables.values():
+                self._refuser(d, str(erreur))
+            return
         signaux = {ticker: _signaux_depuis(d.signaux) for ticker, d in cotables.items()}
         total = self.p.liquidites + self._titres(ouvertes.values())
         intentions = decider(

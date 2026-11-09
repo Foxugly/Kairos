@@ -8,7 +8,7 @@ from django.core.management import call_command
 from django.test import SimpleTestCase, TestCase
 
 from analyse.signaux import BougieJour, Sens, Signal
-from courtage.models import BaremeDonnees, RegleDonnees, TobDonnees
+from courtage.models import Bareme, BaremeDonnees, RegleDonnees, TobDonnees
 from marche.models import Bougie, StatutValeur, TauxChange, Valeur
 from portefeuille.backtest import perte_max, rejouer
 from portefeuille.management.commands.backtest import taux_usd_journaliers
@@ -292,3 +292,10 @@ class CommandeBacktestTests(TestCase):
 
         with self.assertRaises(CommandError):
             call_command("backtest", "--portefeuille", "Inconnu", stdout=StringIO())
+
+    def test_sans_bareme_en_vigueur(self):
+        from django.core.management.base import CommandError
+
+        Bareme.objects.all().delete()
+        with self.assertRaisesMessage(CommandError, "aucun barème ibkr en vigueur le"):
+            call_command("backtest", stdout=StringIO())

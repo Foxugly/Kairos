@@ -63,10 +63,11 @@ class Bareme(models.Model):
 
     @classmethod
     def en_vigueur(cls, broker: str, jour: date) -> "Bareme":
-        """Barème le plus récent dont `valide_depuis` ne dépasse pas `jour` (IndexError si aucun)."""
-        return cls.objects.filter(broker=broker, valide_depuis__lte=jour).order_by(
-            "-valide_depuis"
-        )[0]
+        """Barème le plus récent dont `valide_depuis` ne dépasse pas `jour` (`Bareme.DoesNotExist` si aucun)."""
+        bareme = cls.objects.filter(broker=broker, valide_depuis__lte=jour).order_by("-valide_depuis").first()
+        if bareme is None:
+            raise cls.DoesNotExist(f"aucun barème {broker} en vigueur le {jour}")
+        return bareme
 
     def donnees(self) -> BaremeDonnees:
         return BaremeDonnees(
