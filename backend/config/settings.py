@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "accounts",
     "marche",
+    "sources",
 ]
 
 MIDDLEWARE = [
@@ -148,6 +149,8 @@ LOGIN_URL = "/admin/login/"
 
 # Nombre maximal de titres dans l'univers suivi par Kairos.
 UNIVERS_MAX = 100
+# Source des cours (voir sources/registre.py).
+SOURCE_COURS = "yahoo"
 
 # Angular lit le cookie CSRF et renvoie l'en-tête (convention HttpClient).
 CSRF_COOKIE_NAME = "XSRF-TOKEN"
