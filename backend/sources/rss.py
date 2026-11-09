@@ -9,6 +9,7 @@ from calendar import timegm
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from urllib.parse import urlparse
 
 import feedparser
 import requests
@@ -21,6 +22,11 @@ from .rattachement import valeurs_citees
 
 logger = logging.getLogger(__name__)
 
+ENTREES_MAX = 200  # entrées gardées par flux (les plus récentes viennent en tête)
+TITRE_MAX = 500
+RESUME_MAX = 5000
+TAILLE_MAX = 5 * 1024 * 1024  # octets lus au plus par flux
+REDIRECTIONS_MAX = 5
 URL_MAX = 1000  # longueur du champ `Nouvelle.url`
 USER_AGENT = "Kairos/1.0 (+https://kairos.foxugly.com)"
 
@@ -55,7 +61,7 @@ def lire_flux(contenu: bytes, recu: datetime | None = None) -> list[NouvelleBrut
         raise FluxIllisible("contenu illisible : ce n'est pas un flux RSS/Atom")
     recu = recu or datetime.now(UTC)
     nouvelles = []
-    for entree in analyse.entries:
+    for entree in analyse.entries[:ENTREES_MAX]:
         titre = _nettoyer(entree.get("title", ""))
         url = entree.get("link", "").strip()
         if not titre or not url or not _normaliser_titre(titre):
@@ -64,18 +70,33 @@ def lire_flux(contenu: bytes, recu: datetime | None = None) -> list[NouvelleBrut
             logger.warning("Nouvelle écartée : URL de %d caractères (max %d)", len(url), URL_MAX)
             continue
         nouvelles.append(NouvelleBrute(
-            url=url, titre=titre,
-            resume=_nettoyer(entree.get("summary", "")),
+            url=url, titre=titre[:TITRE_MAX],
+            resume=_nettoyer(entree.get("summary", ""))[:RESUME_MAX],
             publiee=_date(entree) or recu,
         ))
     return nouvelles
 
 
 def telecharger(url: str) -> bytes:
-    reponse = requests.get(url, timeout=15, headers={"User-Agent": USER_AGENT})
-    if reponse.status_code != 200:
-        raise requests.HTTPError(f"statut HTTP {reponse.status_code}")
-    return reponse.content
+    """Télécharge un flux : http(s) seulement, 5 redirections et 5 Mo au plus."""
+    if urlparse(url).scheme not in ("http", "https"):
+        raise ValueError(f"schéma refusé (http ou https attendu) : {url}")
+    session = requests.Session()
+    session.max_redirects = REDIRECTIONS_MAX
+    with session.get(
+        url, stream=True, timeout=(5, 15), headers={"User-Agent": USER_AGENT}
+    ) as reponse:
+        if reponse.status_code != 200:
+            raise requests.HTTPError(f"statut HTTP {reponse.status_code}")
+        annonce = reponse.headers.get("Content-Length", "")
+        if annonce.isdigit() and int(annonce) > TAILLE_MAX:
+            raise ValueError(f"flux trop gros : limite de {TAILLE_MAX} octets")
+        contenu = bytearray()
+        for morceau in reponse.iter_content(chunk_size=65536):
+            contenu += morceau
+            if len(contenu) > TAILLE_MAX:
+                raise ValueError(f"flux trop gros : limite de {TAILLE_MAX} octets")
+        return bytes(contenu)
 
 
 def _normaliser_titre(titre: str) -> str:

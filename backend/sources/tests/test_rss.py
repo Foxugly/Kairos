@@ -1,8 +1,10 @@
 from datetime import UTC, datetime
 
+from unittest import mock
+
 from django.test import SimpleTestCase
 
-from sources.rss import FluxIllisible, lire_flux
+from sources.rss import TAILLE_MAX, FluxIllisible, lire_flux, telecharger
 
 RSS = """<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0"><channel><title>Marchés</title>
@@ -60,3 +62,61 @@ class LireFluxTests(SimpleTestCase):
         ).encode()
         with self.assertLogs("sources.rss", "WARNING"):
             self.assertEqual([n.titre for n in lire_flux(contenu)], ["Bon"])
+
+    def test_201_entrees_gardent_les_200_premieres(self):
+        items = "".join(
+            f"<item><title>N{i}</title><link>https://e.test/{i}</link></item>" for i in range(201)
+        )
+        contenu = f'<rss version="2.0"><channel><title>x</title>{items}</channel></rss>'.encode()
+        nouvelles = lire_flux(contenu)
+        self.assertEqual(len(nouvelles), 200)
+        self.assertEqual(nouvelles[-1].titre, "N199")
+
+    def test_titre_et_resume_tronques(self):
+        contenu = (
+            '<rss version="2.0"><channel><title>x</title><item>'
+            f'<title>{"t" * 600}</title><link>https://e.test/1</link>'
+            f'<description>{"r" * 6000}</description></item></channel></rss>'
+        ).encode()
+        (n,) = lire_flux(contenu)
+        self.assertEqual((len(n.titre), len(n.resume)), (500, 5000))
+
+
+def fausse_reponse(morceaux, entetes=None, statut=200):
+    reponse = mock.MagicMock()
+    reponse.__enter__.return_value = reponse
+    reponse.status_code = statut
+    reponse.headers = entetes or {}
+    reponse.iter_content.return_value = iter(morceaux)
+    return reponse
+
+
+class TelechargerTests(SimpleTestCase):
+    def test_schema_refuse(self):
+        for url in ("file:///etc/passwd", "ftp://e.test/x", "gopher://e.test"):
+            with self.assertRaisesMessage(ValueError, "schéma refusé"):
+                telecharger(url)
+
+    @mock.patch("sources.rss.requests.Session")
+    def test_content_length_trop_grand(self, session):
+        session.return_value.get.return_value = fausse_reponse(
+            [b"x"], {"Content-Length": str(TAILLE_MAX + 1)}
+        )
+        with self.assertRaisesMessage(ValueError, "limite de"):
+            telecharger("https://e.test/rss")
+
+    @mock.patch("sources.rss.requests.Session")
+    def test_lecture_interrompue_au_dela_de_la_limite(self, session):
+        session.return_value.get.return_value = fausse_reponse(
+            [b"x" * TAILLE_MAX, b"y"]
+        )
+        with self.assertRaisesMessage(ValueError, "limite de"):
+            telecharger("https://e.test/rss")
+
+    @mock.patch("sources.rss.requests.Session")
+    def test_lecture_normale_et_parametres(self, session):
+        session.return_value.get.return_value = fausse_reponse([b"ab", b"cd"])
+        self.assertEqual(telecharger("https://e.test/rss"), b"abcd")
+        self.assertEqual(session.return_value.max_redirects, 5)
+        _, kwargs = session.return_value.get.call_args
+        self.assertEqual((kwargs["stream"], kwargs["timeout"]), (True, (5, 15)))
