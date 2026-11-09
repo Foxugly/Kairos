@@ -58,12 +58,15 @@ aussi sur une partie de ses lignes.
   - achat seulement ;
   - sorties : **stop-loss −5 %**, **stop suiveur** (trailing) pour protéger les gains, sortie décidée
     par l'analyse (mauvaise nouvelle, figure baissière) ;
-  - **frais simulés proches de Bolero**, **conversion USD/EUR**, ordres **seulement en séance** de la
+  - **frais simulés d'Interactive Brokers**, **conversion USD/EUR**, ordres **seulement en séance** de la
     bourse de chaque valeur ;
   - **comparaison** permanente à 10 000 € placés au départ sur un indice et gardés ;
   - tous ces paramètres réglables (admin Django).
-- Broker réel actuel de Renaud : **Bolero**, sans API publique connue — le choix d'un broker réel
-  est reporté.
+- **Broker retenu : Interactive Brokers** (décision de Renaud, 2026-11-09) — barème de frais de la
+  simulation, puis broker réel. IBKR a une API et un **compte de démonstration (paper trading)** :
+  étape intermédiaire possible entre la simulation interne et l'argent réel. Bolero (sans API
+  publique) est écarté. Renaud n'a **pas encore de compte IBKR** : il l'ouvrira le moment venu ;
+  d'ici là, aucun code ne se connecte à IBKR (seul son barème est utilisé).
 
 ## Architecture
 
@@ -92,7 +95,7 @@ aussi sur une partie de ses lignes.
   - la **taxe sur les opérations de bourse (TOB)** belge, à l'achat comme à la vente ;
   - d'éventuels frais de place ou de garde.
 
-  Le barème de départ reproduit celui de **Bolero** en vigueur (à relever sur son site au moment de
+  Le barème de départ reproduit celui d'**Interactive Brokers** (IBKR Pro) en vigueur (à relever sur son site au moment de
   la construction, avec sa date). L'interface `Broker` expose « combien coûterait cet ordre » : la
   décision d'acheter en tient compte (pas d'achat dont le gain attendu ne couvre pas l'aller‑retour
   des frais). Chaque ordre enregistre le détail de ses frais ; **tous les gains et pertes affichés
@@ -176,6 +179,8 @@ Rafraîchissement automatique de l'affichage (rythme du cycle).
 
 - Choix précis des indicateurs et figures de la première version, et des flux RSS de départ.
 - Modèle(s) Claude exact(s) et format de la réponse structurée (dernier modèle disponible).
-- Modèle de frais « proche de Bolero » (barème simplifié), source du taux de change.
+- Barème IBKR « fixe » ou « échelonné » (le plus simple à modéliser fidèlement), source du taux de change.
+- La TOB reste due par un résident belge même chez un broker étranger (IBKR ne la prélèverait pas — à vérifier au moment de la construction ; à
+  simuler quand même, et à déclarer soi-même en réel).
 - Découpage en étapes livrables (suggestion : collecte → simulation sur règles techniques seules →
   IA → frontend complet).
