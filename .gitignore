@@ -1,0 +1,10 @@
+.superpowers/
+__pycache__/
+*.py[cod]
+.venv/
+db.sqlite3
+db.sqlite3-journal
+.env
+.env.*
+!.env.example
+node_modules/
