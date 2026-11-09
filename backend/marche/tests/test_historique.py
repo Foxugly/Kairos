@@ -7,6 +7,7 @@ from django.test import TestCase
 from marche.models import Bougie, StatutValeur
 from marche.tests.test_releve import SourceFactice, brute, valeur
 from unittest import mock
+from marche.tests.outils import repartir_de_zero
 
 J1 = datetime(2026, 11, 5, tzinfo=UTC)
 J2 = datetime(2026, 11, 6, tzinfo=UTC)
@@ -20,6 +21,9 @@ def lancer(source, *args):
 
 
 class HistoriqueTests(TestCase):
+    def setUp(self):
+        repartir_de_zero()
+
     def test_enregistre_sans_doublon_et_compte_les_erreurs(self):
         valeur("AAPL", "NASDAQ", "USD")
         ref = valeur("IWDA.AS", "XAMS", "EUR", StatutValeur.INACTIVE)

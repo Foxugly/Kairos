@@ -9,9 +9,13 @@ from django.test import RequestFactory
 from marche.admin import ValeurAdmin
 from marche.tests.test_modeles import creer_valeur
 from marche.tests.test_proposer_univers import lancer
+from marche.tests.outils import repartir_de_zero
 
 
 class ReferenceTests(TestCase):
+    def setUp(self):
+        repartir_de_zero()
+
     def test_defauts(self):
         v = creer_valeur("TTE.PA")
         self.assertFalse(v.reference)
@@ -39,6 +43,9 @@ class ReferenceTests(TestCase):
 
 
 class ActiverReferenceTests(TestCase):
+    def setUp(self):
+        repartir_de_zero()
+
     def lancer(self, queryset):
         requete = RequestFactory().post("/")
         requete.user = get_user_model().objects.create_superuser("a@b.fr", "x")

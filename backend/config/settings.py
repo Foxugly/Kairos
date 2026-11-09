@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "cycle",
     "analyse",
     "courtage",
+    "portefeuille",
 ]
 
 MIDDLEWARE = [

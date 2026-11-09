@@ -8,6 +8,7 @@ from django.test import TestCase
 from marche.models import Bougie, StatutValeur, TauxChange, Valeur
 from marche.releve import relever_cours
 from sources.cours import BougieBrute
+from marche.tests.outils import repartir_de_zero
 
 
 def brute(debut, cloture="10"):
@@ -43,6 +44,9 @@ MILIEU = datetime(2026, 11, 9, 15, 0, tzinfo=UTC)
 
 
 class RelevéCinqMinutesTests(TestCase):
+    def setUp(self):
+        repartir_de_zero()
+
     def test_seules_les_valeurs_actives_en_seance_sont_demandees(self):
         valeur("AAPL", "NASDAQ", "USD")
         valeur("TTE.PA", "XPAR", "EUR")
@@ -136,6 +140,9 @@ class TauxEnCacheTests(TestCase):
 
 
 class PanneTotaleTests(TestCase):
+    def setUp(self):
+        repartir_de_zero()
+
     def test_toutes_les_valeurs_en_echec_journalise_une_erreur(self):
         valeur("TTE.PA", "XPAR", "EUR")
         valeur("AIR.PA", "XPAR", "EUR")
@@ -153,6 +160,9 @@ class PanneTotaleTests(TestCase):
 
 
 class RelevéJournalierTests(TestCase):
+    def setUp(self):
+        repartir_de_zero()
+
     # 17:00 UTC = 18:00 à Paris : fermé depuis 30 min, bougie du jour à relever.
     APRES = datetime(2026, 11, 9, 17, 0, tzinfo=UTC)
     # Yahoo date la bougie journalière par la date locale, lue comme minuit UTC.
