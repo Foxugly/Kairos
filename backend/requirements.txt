@@ -4,4 +4,4 @@ gunicorn==23.0.0
 sentry-sdk[django]==2.74.0
 yfinance>=1.8,<1.9
 feedparser>=6.0.14,<6.1
-requests>=2.34,<2.35
+requests>=2.34.2,<2.35
