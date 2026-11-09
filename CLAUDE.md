@@ -28,7 +28,7 @@ et messages de commit en français. Dépôt public : aucun secret, aucune donné
   elle met à jour nom/alias mais ne touche jamais au statut. Relevé des indices : 2026-11-09 (Wikipedia, composition
   au 2026-09-21) ; `BK` = BNY. À rafraîchir à la main lors des révisions trimestrielles.
   `Valeur.reference` : valeur suivie pour comparaison (IWDA.AS), jamais tradée, hors limite de l'univers ;
-  `Valeur.objects.a_relever()` = actives + références. `Valeur.type_titre` (`action`/`etf`, pour la TOB).
+  `Valeur.objects.a_relever()` = actives + références + valeurs encore détenues (`detenues()`). `Valeur.type_titre` (`action`/`etf`, pour la TOB).
   Bougie `1d` : `debut` = minuit UTC de la date locale de la séance. `manage.py historique [--jours 400] [--ticker T]`
   charge les bougies 1d de `a_relever()` (idempotent) et, si une valeur est en USD, le taux USD de clôture de
   chaque jour (`TauxChange` à minuit UTC, via `SourceCours.taux_journaliers`).
@@ -46,14 +46,21 @@ et messages de commit en français. Dépôt public : aucun secret, aucune donné
   sème IWDA.AS et les portefeuilles « IA » et « Technique » (10 000 €, indice IWDA.AS). `strategie` (code pur,
   partagé cycle/backtest) : `Regles.depuis(p)`, `stops`, `decider`. `execution` : étapes « decisions » (une fois
   par jour après 22:30 UTC, signaux sur les 120 dernières bougies 1d → `Decision` pour le jour ouvré suivant) et
-  « execution » (achat de l'indice au démarrage, stops à chaque cycle déclenchés par le plus bas de la dernière bougie 5m et exécutés à son dernier cours, plus haut
-  suiveur relevé sur son plus haut, décisions du
-  jour au premier cycle où la valeur est cotable, sinon abandonnées ; revalorisation).
+  « execution » (achat de l'indice au démarrage ; stops à chaque cycle, déclenchés par le plus bas de la dernière
+  bougie 5m et exécutés à son dernier cours, plus haut suiveur relevé sur son plus haut ; décisions du jour au
+  premier cycle où la valeur est cotable, sinon abandonnées ; revalorisation). Une valeur désactivée encore
+  détenue reste relevée (`a_relever()`), surveillée et vendable, jamais achetée.
   `manage.py backtest [--depuis AAAA-MM-JJ] [--portefeuille Technique]` : rejoue (`backtest.rejouer`, pur) les
   règles sur les bougies 1d en base (lancer `historique --jours 1900` avant pour 5 ans), enregistre un
   `ResultatBacktest` et affiche le rapport. Signal à la clôture J → ordre à l'ouverture de la séance suivante de
   la valeur ; stops sur le plus bas du jour (sortie au stop, ou à l'ouverture en cas de gap) ; ordres en séance
-  au taux USD journalier d'avant J, valorisation au taux de J (taux relevés en séance ignorés). Il applique le barème en vigueur **aujourd'hui** à toute la période.
+  au taux USD journalier d'avant J, valorisation au taux de J (taux relevés en séance ignorés). Il applique le barème en vigueur **aujourd'hui** et l'univers actuel à
+  toute la période (biais du survivant, signalé dans le rapport).
+  Écarts assumés entre direct et backtest : financement des achats — en direct, par ouverture de place (Europe
+  avant États-Unis, chaque décision au premier cycle où sa valeur est cotable), au backtest un seul passage par
+  jour trié par score ; jours fériés — en direct, une décision dont la place ne cote pas le jour prévu est
+  abandonnée, au backtest elle s'exécute à la séance suivante de la valeur ; une position achetée à l'ouverture
+  n'est pas confrontée au plus bas de ce jour-là dans le backtest (stops contrôlés avant les ordres du jour).
 - Choix de stratégie (plan 2, à relire) : signaux une fois par jour sur bougies 1d clôturées, exécutés le jour
   suivant ; score +1 par signal d'achat, −1 par vente ; achat si score ≥ 2 et aucun signal de vente, vente si
   score ≤ −1 ; stop-loss −5 %, stop suiveur armé à +5 % et placé 5 % sous le plus haut ; exécution simulée avec
