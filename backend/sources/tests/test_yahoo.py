@@ -113,3 +113,21 @@ class SourceYahooTests(SimpleTestCase):
         })
         self.assertEqual(SourceYahoo().taux_eur("USD"), Decimal("0.800000"))
         self.assertEqual(SourceYahoo().taux_eur("EUR"), Decimal(1))
+
+    def test_taux_journaliers(self, download):
+        index = pd.DatetimeIndex(["2026-11-06", "2026-11-09"])
+        brut = pd.DataFrame([[1.25, 1.25, 1.25, 1.25, 0], [1.6, 1.6, 1.6, 1.6, 0]], index=index,
+                            columns=["Open", "High", "Low", "Close", "Volume"])
+        download.return_value = telechargement(**{"EURUSD=X": brut})
+        source = SourceYahoo()
+        self.assertEqual(source.taux_journaliers("USD", DEPUIS), [
+            (datetime(2026, 11, 6, tzinfo=UTC), Decimal("0.800000")),
+            (datetime(2026, 11, 9, tzinfo=UTC), Decimal("0.625000")),
+        ])
+        self.assertEqual(download.call_args[0][0], ["EURUSD=X"])
+
+    def test_taux_journaliers_en_echec(self, download):
+        download.side_effect = RuntimeError("réseau")
+        source = SourceYahoo()
+        self.assertEqual(source.taux_journaliers("USD", DEPUIS), [])
+        self.assertIn("USD", source.erreurs)

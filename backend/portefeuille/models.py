@@ -163,3 +163,32 @@ class Valorisation(models.Model):
 
     def __str__(self):
         return f"{self.portefeuille} {self.instant:%Y-%m-%d %H:%M}"
+
+
+class ResultatBacktest(models.Model):
+    """Résultat d'un `manage.py backtest` : paramètres rejoués et rapport (fractions, montants en EUR)."""
+
+    portefeuille = models.ForeignKey(Portefeuille, on_delete=models.CASCADE, related_name="backtests")
+    regles = models.JSONField()  # champs de `Regles`, en texte
+    capital = models.DecimalField(max_digits=14, decimal_places=2)
+    indice = models.CharField(max_length=20)
+    bareme = models.CharField(max_length=100)  # nom du barème appliqué à toute la période
+    debut = models.DateField()
+    fin = models.DateField()
+    valeur_finale = models.DecimalField(max_digits=14, decimal_places=2)
+    performance = models.DecimalField(max_digits=10, decimal_places=4)
+    performance_indice = models.DecimalField(max_digits=10, decimal_places=4)
+    ecart = models.DecimalField(max_digits=10, decimal_places=4)
+    nb_positions = models.PositiveIntegerField()
+    taux_gagnantes = models.DecimalField(max_digits=6, decimal_places=4)
+    frais_total = models.DecimalField(max_digits=14, decimal_places=2)
+    tob_total = models.DecimalField(max_digits=14, decimal_places=2)
+    perte_max = models.DecimalField(max_digits=6, decimal_places=4)
+    courbe = models.JSONField()  # [[jour, total, indice_total], ...]
+    cree = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-cree"]
+
+    def __str__(self):
+        return f"{self.portefeuille} {self.debut} → {self.fin}"

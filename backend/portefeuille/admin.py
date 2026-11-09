@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Decision, Ordre, Portefeuille, Position, Valorisation
+from .models import Decision, Ordre, Portefeuille, Position, ResultatBacktest, Valorisation
 
 
 class LectureSeule(admin.ModelAdmin):
@@ -44,3 +44,10 @@ class DecisionAdmin(LectureSeule):
 class ValorisationAdmin(LectureSeule):
     list_display = ("instant", "portefeuille", "total", "indice_total")
     list_filter = ("portefeuille",)
+
+
+@admin.register(ResultatBacktest)
+class ResultatBacktestAdmin(LectureSeule):
+    list_display = ("cree", "portefeuille", "debut", "fin", "performance", "performance_indice")
+    list_filter = ("portefeuille",)
+    exclude = ("courbe",)

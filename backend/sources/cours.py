@@ -30,3 +30,10 @@ class SourceCours(Protocol):
     def taux_eur(self, devise: str) -> Decimal:
         """Valeur en euros d'une unité de `devise` (EUR pour 1 USD, par exemple)."""
         ...
+
+    def taux_journaliers(self, devise: str, depuis: datetime) -> list[tuple[datetime, Decimal]]:
+        """Taux de clôture journaliers depuis `depuis` (minuit UTC de la date, EUR pour 1 unité).
+
+        Liste vide en cas d'échec, la raison dans `erreurs[devise]` ; ne lève jamais.
+        """
+        ...

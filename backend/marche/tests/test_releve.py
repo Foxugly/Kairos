@@ -24,6 +24,7 @@ class SourceFactice:
         self._erreurs = erreurs or {}
         self.erreurs = {}
         self.appels = []
+        self.taux = {}
 
     def bougies(self, tickers, intervalle, depuis):
         self.appels.append((list(tickers), intervalle, depuis))
@@ -33,6 +34,10 @@ class SourceFactice:
 
     def taux_eur(self, devise):
         return Decimal("0.8")
+
+    def taux_journaliers(self, devise, depuis):
+        self.erreurs = {}
+        return [(instant, taux) for instant, taux in self.taux.get(devise, []) if instant >= depuis]
 
 
 def valeur(ticker, place, devise, statut=StatutValeur.ACTIVE):

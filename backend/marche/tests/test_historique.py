@@ -4,7 +4,9 @@ from io import StringIO
 from django.core.management import call_command
 from django.test import TestCase
 
-from marche.models import Bougie, StatutValeur
+from decimal import Decimal
+
+from marche.models import Bougie, StatutValeur, TauxChange
 from marche.tests.test_releve import SourceFactice, brute, valeur
 from unittest import mock
 from marche.tests.outils import repartir_de_zero
@@ -49,3 +51,23 @@ class HistoriqueTests(TestCase):
         lancer(source, "--ticker", "AAPL")
         self.assertEqual(source.appels[0][0], ["AAPL"])
         self.assertEqual(Bougie.objects.count(), 1)
+
+    def test_taux_usd_journaliers_si_une_valeur_usd(self):
+        valeur("AAPL", "NASDAQ", "USD")
+        source = SourceFactice(bougies={("AAPL", "1d"): [brute(J1)]})
+        source.taux = {"USD": [(J1, Decimal("0.8")), (J2, Decimal("0.81"))]}
+        sortie = lancer(source)
+        self.assertIn("2 taux USD journaliers", sortie)
+        self.assertEqual(
+            list(TauxChange.objects.order_by("instant").values_list("instant", "taux")),
+            [(J1, Decimal("0.8")), (J2, Decimal("0.81"))],
+        )
+        lancer(source)
+        self.assertEqual(TauxChange.objects.count(), 2)
+
+    def test_pas_de_taux_sans_valeur_usd(self):
+        valeur("TTE.PA", "XPAR", "EUR")
+        source = SourceFactice(bougies={("TTE.PA", "1d"): [brute(J1)]})
+        source.taux = {"USD": [(J1, Decimal("0.8"))]}
+        lancer(source)
+        self.assertFalse(TauxChange.objects.exists())

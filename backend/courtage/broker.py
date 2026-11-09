@@ -39,19 +39,25 @@ class Broker(Protocol):
     def executer(self, ordre: OrdreDemande) -> Execution: ...
 
 
+def execution_simulee(bareme: BaremeDonnees, sens: str, cotation: Cotation, quantite: int) -> Execution:
+    """Exécution sur papier, sans base : partagée par le broker simulé et le backtest."""
+    signe = Decimal(1) if sens == "achat" else Decimal(-1)
+    prix = (cotation.prix * (1 + signe * bareme.glissement)).quantize(QUATRE_DECIMALES, ROUND_HALF_UP)
+    frais = calculer_frais(
+        bareme, cotation.place, cotation.devise, cotation.type_titre, quantite, prix, cotation.taux_eur
+    )
+    montant = (quantite * prix * cotation.taux_eur).quantize(CENTIME, ROUND_HALF_UP)
+    return Execution(prix=prix, taux_eur=cotation.taux_eur, montant_eur=montant, frais=frais)
+
+
 class BrokerSimule:
     """Exécute sur papier au cours de la cotation, avec le glissement défavorable du barème."""
 
     code = "simule"
 
     def _calcul(self, ordre: OrdreDemande) -> Execution:
-        bareme: BaremeDonnees = Bareme.en_vigueur(ordre.bareme, ordre.jour).donnees()
-        c = ordre.cotation
-        sens = Decimal(1) if ordre.sens == "achat" else Decimal(-1)
-        prix = (c.prix * (1 + sens * bareme.glissement)).quantize(QUATRE_DECIMALES, ROUND_HALF_UP)
-        frais = calculer_frais(bareme, c.place, c.devise, c.type_titre, ordre.quantite, prix, c.taux_eur)
-        montant = (ordre.quantite * prix * c.taux_eur).quantize(CENTIME, ROUND_HALF_UP)
-        return Execution(prix=prix, taux_eur=c.taux_eur, montant_eur=montant, frais=frais)
+        bareme = Bareme.en_vigueur(ordre.bareme, ordre.jour).donnees()
+        return execution_simulee(bareme, ordre.sens, ordre.cotation, ordre.quantite)
 
     def estimer(self, ordre: OrdreDemande) -> DetailFrais:
         return self._calcul(ordre).frais
