@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "sources",
     "cycle",
     "analyse",
+    "courtage",
 ]
 
 MIDDLEWARE = [
