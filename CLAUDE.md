@@ -28,6 +28,13 @@ et messages de commit en français. Dépôt public : aucun secret, aucune donné
   elle met à jour nom/alias mais ne touche jamais au statut. Relevé des indices : 2026-11-09 (Wikipedia, composition
   au 2026-09-21) ; `BK` = BNY. À rafraîchir à la main lors des révisions trimestrielles.
 
+- `sources/` — `FluxRss`, `Nouvelle` (dédoublonnées, rattachées aux valeurs), client Yahoo des cours, registre
+  des sources. Flux de départ : `manage.py loaddata flux_depart`.
+- `cycle/` — `Cycle` (journal JSON par étape), `Verrou` (ligne unique pour la sérialisation) ; `deroulement.ETAPES`
+  liste les étapes (nouvelles, cours ; les plans 2 et 3 en ajoutent). `manage.py cycle` : une étape en échec n'arrête
+  pas les suivantes, code de sortie 0, cycles de plus de 30 jours purgés, cycle `en_cours` de plus de 10 min
+  abandonné. Il sera lancé toutes les 5 minutes par un timer systemd (plan 5).
+
 ## Intégration continue
 
 `.github/workflows/ci.yml` : tests sur PostgreSQL 16 (image ECR en cache, jamais un `services:`), migrations,
