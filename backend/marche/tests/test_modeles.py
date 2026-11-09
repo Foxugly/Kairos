@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django.contrib import admin, messages
 from django.contrib.auth import get_user_model
+from django.contrib.messages.storage.fallback import FallbackStorage
 from django.db import IntegrityError, transaction
 from django.test import RequestFactory, TestCase, override_settings
 
@@ -34,7 +35,7 @@ class ActiverTests(TestCase):
         requete = RequestFactory().post("/")
         requete.user = get_user_model().objects.create_superuser("a@b.fr", "x")
         requete.session = {}
-        requete._messages = messages.storage.fallback.FallbackStorage(requete)
+        requete._messages = FallbackStorage(requete)
         ValeurAdmin(Valeur, admin.site).activer(requete, queryset)
         return [str(m) for m in requete._messages], [m.level for m in requete._messages]
 
