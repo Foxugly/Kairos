@@ -4,7 +4,7 @@ from pathlib import Path
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from marche.models import Place, StatutValeur, Valeur
+from marche.models import Place, StatutValeur, TypeTitre, Valeur
 
 FICHIER_PAR_DEFAUT = Path(__file__).resolve().parents[2] / "donnees" / "univers.csv"
 
@@ -28,6 +28,13 @@ class Command(BaseCommand):
                             f"ligne {numero} : place inconnue « {ligne['place']} »"
                         )
                     imposee = ligne["imposee"] == "1"
+                    # Colonnes facultatives : absentes, ce sont les défauts du modèle.
+                    reference = ligne.get("reference") == "1"
+                    type_titre = ligne.get("type_titre") or TypeTitre.ACTION
+                    if type_titre not in TypeTitre.values:
+                        raise CommandError(
+                            f"ligne {numero} : type de titre inconnu « {type_titre} »"
+                        )
                     _, cree = Valeur.objects.update_or_create(
                         ticker=ligne["ticker"],
                         defaults={
@@ -36,6 +43,8 @@ class Command(BaseCommand):
                             "place": ligne["place"],
                             "devise": ligne["devise"],
                             "imposee": imposee,
+                            "reference": reference,
+                            "type_titre": type_titre,
                         },
                         # Le statut n'est fixé qu'à la création : on ne réactive
                         # jamais une valeur que l'administrateur a désactivée.
@@ -45,6 +54,8 @@ class Command(BaseCommand):
                             "place": ligne["place"],
                             "devise": ligne["devise"],
                             "imposee": imposee,
+                            "reference": reference,
+                            "type_titre": type_titre,
                             "statut": (
                                 StatutValeur.ACTIVE if imposee else StatutValeur.PROPOSEE
                             ),

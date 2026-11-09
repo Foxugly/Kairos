@@ -1,151 +1,152 @@
-ticker,nom,place,devise,alias,imposee
-AAPL,Apple,NASDAQ,USD,Apple,1
-ABBV,AbbVie,NYSE,USD,AbbVie,0
-ABT,Abbott Laboratories,NYSE,USD,Abbott,0
-ACN,Accenture,NYSE,USD,Accenture,0
-ADBE,Adobe,NASDAQ,USD,Adobe,0
-AMAT,Applied Materials,NASDAQ,USD,Applied Materials,0
-AMD,Advanced Micro Devices,NASDAQ,USD,AMD,0
-AMGN,Amgen,NASDAQ,USD,Amgen,0
-AMT,American Tower,NYSE,USD,American Tower,0
-AMZN,Amazon,NASDAQ,USD,Amazon,1
-ANET,Arista Networks,NYSE,USD,Arista,0
-AVGO,Broadcom,NASDAQ,USD,Broadcom,0
-AXP,American Express,NYSE,USD,American Express,0
-BA,Boeing,NYSE,USD,Boeing,0
-BAC,Bank of America,NYSE,USD,Bank of America,0
-BKNG,Booking Holdings,NASDAQ,USD,Booking Holdings,0
-BK,BNY,NYSE,USD,"BNY Mellon,BNY",0
-BLK,BlackRock,NYSE,USD,BlackRock,0
-BMY,Bristol Myers Squibb,NYSE,USD,Bristol Myers Squibb,0
-BRK-B,Berkshire Hathaway,NYSE,USD,Berkshire Hathaway,0
-C,Citigroup,NYSE,USD,Citigroup,0
-CAT,Caterpillar,NYSE,USD,Caterpillar,0
-CMCSA,Comcast,NASDAQ,USD,Comcast,0
-COF,Capital One,NYSE,USD,Capital One,0
-COP,ConocoPhillips,NYSE,USD,ConocoPhillips,0
-COST,Costco,NASDAQ,USD,Costco,0
-CRM,Salesforce,NYSE,USD,Salesforce,0
-CSCO,Cisco,NASDAQ,USD,Cisco,0
-CVS,CVS Health,NYSE,USD,CVS Health,0
-CVX,Chevron,NYSE,USD,Chevron,0
-DE,Deere & Company,NYSE,USD,John Deere,0
-DELL,Dell Technologies,NYSE,USD,Dell,0
-DHR,Danaher,NYSE,USD,Danaher,0
-DIS,Walt Disney,NYSE,USD,Disney,0
-DUK,Duke Energy,NYSE,USD,Duke Energy,0
-EMR,Emerson Electric,NYSE,USD,Emerson Electric,0
-FDX,FedEx,NYSE,USD,FedEx,0
-GD,General Dynamics,NYSE,USD,General Dynamics,0
-GE,GE Aerospace,NYSE,USD,GE Aerospace,0
-GEV,GE Vernova,NYSE,USD,GE Vernova,0
-GILD,Gilead Sciences,NASDAQ,USD,Gilead,0
-GM,General Motors,NYSE,USD,General Motors,0
-GOOGL,Alphabet,NASDAQ,USD,"Alphabet,Google",1
-GS,Goldman Sachs,NYSE,USD,Goldman Sachs,0
-HD,Home Depot,NYSE,USD,Home Depot,0
-IBM,IBM,NYSE,USD,IBM,0
-INTC,Intel,NASDAQ,USD,Intel,0
-INTU,Intuit,NASDAQ,USD,Intuit,0
-ISRG,Intuitive Surgical,NASDAQ,USD,Intuitive Surgical,0
-JNJ,Johnson & Johnson,NYSE,USD,Johnson & Johnson,0
-JPM,JPMorgan Chase,NYSE,USD,JPMorgan,0
-KO,Coca-Cola,NYSE,USD,Coca-Cola,0
-LIN,Linde,NASDAQ,USD,Linde,0
-LLY,Eli Lilly,NYSE,USD,Eli Lilly,0
-LMT,Lockheed Martin,NYSE,USD,Lockheed Martin,0
-LOW,Lowe's,NYSE,USD,Lowe's,0
-LRCX,Lam Research,NASDAQ,USD,Lam Research,0
-MA,Mastercard,NYSE,USD,Mastercard,0
-MCD,McDonald's,NYSE,USD,McDonald's,0
-MDLZ,Mondelez International,NASDAQ,USD,Mondelez,0
-MDT,Medtronic,NYSE,USD,Medtronic,0
-META,Meta Platforms,NASDAQ,USD,"Meta,Meta Platforms,Facebook",1
-MMM,3M,NYSE,USD,3M,0
-MO,Altria,NYSE,USD,Altria,0
-MRK,Merck & Co.,NYSE,USD,Merck,0
-MS,Morgan Stanley,NYSE,USD,Morgan Stanley,0
-MSFT,Microsoft,NASDAQ,USD,Microsoft,1
-MU,Micron Technology,NASDAQ,USD,Micron,0
-NEE,NextEra Energy,NYSE,USD,NextEra,0
-NFLX,Netflix,NASDAQ,USD,Netflix,0
-NOW,ServiceNow,NYSE,USD,ServiceNow,0
-NVDA,Nvidia,NASDAQ,USD,"Nvidia,NVIDIA",1
-ORCL,Oracle,NYSE,USD,Oracle Corp,0
-PANW,Palo Alto Networks,NASDAQ,USD,Palo Alto Networks,0
-PEP,PepsiCo,NASDAQ,USD,PepsiCo,0
-PFE,Pfizer,NYSE,USD,Pfizer,0
-PG,Procter & Gamble,NYSE,USD,Procter & Gamble,0
-PLTR,Palantir,NASDAQ,USD,Palantir,0
-PM,Philip Morris International,NYSE,USD,Philip Morris,0
-QCOM,Qualcomm,NASDAQ,USD,Qualcomm,0
-RTX,RTX,NYSE,USD,RTX,0
-SBUX,Starbucks,NASDAQ,USD,Starbucks,0
-SCHW,Charles Schwab,NYSE,USD,Charles Schwab,0
-SNDK,Sandisk,NASDAQ,USD,Sandisk,0
-SO,Southern Company,NYSE,USD,Southern Company,0
-T,AT&T,NYSE,USD,AT&T,0
-TMO,Thermo Fisher Scientific,NYSE,USD,Thermo Fisher,0
-TMUS,T-Mobile US,NASDAQ,USD,T-Mobile,0
-TSLA,Tesla,NASDAQ,USD,Tesla,1
-TXN,Texas Instruments,NASDAQ,USD,Texas Instruments,0
-UBER,Uber,NYSE,USD,Uber,0
-UNH,UnitedHealth Group,NYSE,USD,UnitedHealth,0
-UNP,Union Pacific,NYSE,USD,Union Pacific,0
-UPS,United Parcel Service,NYSE,USD,UPS,0
-USB,U.S. Bancorp,NYSE,USD,U.S. Bancorp,0
-V,Visa,NYSE,USD,Visa Inc,0
-VZ,Verizon,NYSE,USD,Verizon,0
-WFC,Wells Fargo,NYSE,USD,Wells Fargo,0
-WMT,Walmart,NYSE,USD,Walmart,0
-XOM,ExxonMobil,NYSE,USD,ExxonMobil,0
-ADS.DE,Adidas,XETR,EUR,Adidas,0
-ADYEN.AS,Adyen,XAMS,EUR,Adyen,0
-AD.AS,Ahold Delhaize,XAMS,EUR,Ahold Delhaize,0
-AI.PA,Air Liquide,XPAR,EUR,Air Liquide,0
-AIR.PA,Airbus,XPAR,EUR,Airbus,0
-ALV.DE,Allianz,XETR,EUR,Allianz,0
-ABI.BR,Anheuser-Busch InBev,XBRU,EUR,"Anheuser-Busch InBev,AB InBev",0
-ARGX.BR,argenx,XBRU,EUR,argenx,0
-ASML.AS,ASML Holding,XAMS,EUR,ASML,0
-CS.PA,AXA,XPAR,EUR,AXA,0
-BAS.DE,BASF,XETR,EUR,BASF,0
-BAYN.DE,Bayer,XETR,EUR,Bayer,0
-BBVA.MC,BBVA,XMAD,EUR,BBVA,0
-BMW.DE,BMW,XETR,EUR,BMW,0
-BNP.PA,BNP Paribas,XPAR,EUR,BNP Paribas,0
-BN.PA,Danone,XPAR,EUR,Danone,0
-DBK.DE,Deutsche Bank,XETR,EUR,Deutsche Bank,0
-DB1.DE,Deutsche Börse,XETR,EUR,Deutsche Börse,0
-DHL.DE,Deutsche Post (DHL),XETR,EUR,"Deutsche Post,DHL",0
-DTE.DE,Deutsche Telekom,XETR,EUR,Deutsche Telekom,0
-ENEL.MI,Enel,XMIL,EUR,Enel,0
-ENGI.PA,Engie,XPAR,EUR,Engie,0
-ENI.MI,Eni,XMIL,EUR,Eni,0
-EL.PA,EssilorLuxottica,XPAR,EUR,EssilorLuxottica,0
-RACE.MI,Ferrari,XMIL,EUR,Ferrari,0
-RMS.PA,Hermès,XPAR,EUR,"Hermès,Hermes",0
-IBE.MC,Iberdrola,XMAD,EUR,Iberdrola,0
-ITX.MC,Inditex,XMAD,EUR,Inditex,0
-IFX.DE,Infineon Technologies,XETR,EUR,Infineon,0
-INGA.AS,ING Group,XAMS,EUR,ING,0
-ISP.MI,Intesa Sanpaolo,XMIL,EUR,Intesa Sanpaolo,0
-OR.PA,L'Oréal,XPAR,EUR,"L'Oréal,L'Oreal",0
-MC.PA,LVMH,XPAR,EUR,LVMH,0
-MBG.DE,Mercedes-Benz Group,XETR,EUR,Mercedes-Benz,0
-MUV2.DE,Munich Re,XETR,EUR,Munich Re,0
-NOKIA.HE,Nokia,XHEL,EUR,Nokia,0
-NDA-FI.HE,Nordea,XHEL,EUR,Nordea,0
-PRX.AS,Prosus,XAMS,EUR,Prosus,0
-RHM.DE,Rheinmetall,XETR,EUR,Rheinmetall,0
-SAF.PA,Safran,XPAR,EUR,Safran,0
-SGO.PA,Saint-Gobain,XPAR,EUR,Saint-Gobain,0
-SAN.PA,Sanofi,XPAR,EUR,Sanofi,0
-SAN.MC,Banco Santander,XMAD,EUR,Santander,0
-SAP.DE,SAP,XETR,EUR,SAP,0
-SU.PA,Schneider Electric,XPAR,EUR,Schneider Electric,0
-SIE.DE,Siemens,XETR,EUR,Siemens,0
-ENR.DE,Siemens Energy,XETR,EUR,Siemens Energy,0
-TTE.PA,TotalEnergies,XPAR,EUR,TotalEnergies,1
-UCG.MI,UniCredit,XMIL,EUR,UniCredit,0
-DG.PA,Vinci,XPAR,EUR,Vinci,0
+ticker,nom,place,devise,alias,imposee,reference,type_titre
+AAPL,Apple,NASDAQ,USD,Apple,1,0,action
+ABBV,AbbVie,NYSE,USD,AbbVie,0,0,action
+ABT,Abbott Laboratories,NYSE,USD,Abbott,0,0,action
+ACN,Accenture,NYSE,USD,Accenture,0,0,action
+ADBE,Adobe,NASDAQ,USD,Adobe,0,0,action
+AMAT,Applied Materials,NASDAQ,USD,Applied Materials,0,0,action
+AMD,Advanced Micro Devices,NASDAQ,USD,AMD,0,0,action
+AMGN,Amgen,NASDAQ,USD,Amgen,0,0,action
+AMT,American Tower,NYSE,USD,American Tower,0,0,action
+AMZN,Amazon,NASDAQ,USD,Amazon,1,0,action
+ANET,Arista Networks,NYSE,USD,Arista,0,0,action
+AVGO,Broadcom,NASDAQ,USD,Broadcom,0,0,action
+AXP,American Express,NYSE,USD,American Express,0,0,action
+BA,Boeing,NYSE,USD,Boeing,0,0,action
+BAC,Bank of America,NYSE,USD,Bank of America,0,0,action
+BKNG,Booking Holdings,NASDAQ,USD,Booking Holdings,0,0,action
+BK,BNY,NYSE,USD,"BNY Mellon,BNY",0,0,action
+BLK,BlackRock,NYSE,USD,BlackRock,0,0,action
+BMY,Bristol Myers Squibb,NYSE,USD,Bristol Myers Squibb,0,0,action
+BRK-B,Berkshire Hathaway,NYSE,USD,Berkshire Hathaway,0,0,action
+C,Citigroup,NYSE,USD,Citigroup,0,0,action
+CAT,Caterpillar,NYSE,USD,Caterpillar,0,0,action
+CMCSA,Comcast,NASDAQ,USD,Comcast,0,0,action
+COF,Capital One,NYSE,USD,Capital One,0,0,action
+COP,ConocoPhillips,NYSE,USD,ConocoPhillips,0,0,action
+COST,Costco,NASDAQ,USD,Costco,0,0,action
+CRM,Salesforce,NYSE,USD,Salesforce,0,0,action
+CSCO,Cisco,NASDAQ,USD,Cisco,0,0,action
+CVS,CVS Health,NYSE,USD,CVS Health,0,0,action
+CVX,Chevron,NYSE,USD,Chevron,0,0,action
+DE,Deere & Company,NYSE,USD,John Deere,0,0,action
+DELL,Dell Technologies,NYSE,USD,Dell,0,0,action
+DHR,Danaher,NYSE,USD,Danaher,0,0,action
+DIS,Walt Disney,NYSE,USD,Disney,0,0,action
+DUK,Duke Energy,NYSE,USD,Duke Energy,0,0,action
+EMR,Emerson Electric,NYSE,USD,Emerson Electric,0,0,action
+FDX,FedEx,NYSE,USD,FedEx,0,0,action
+GD,General Dynamics,NYSE,USD,General Dynamics,0,0,action
+GE,GE Aerospace,NYSE,USD,GE Aerospace,0,0,action
+GEV,GE Vernova,NYSE,USD,GE Vernova,0,0,action
+GILD,Gilead Sciences,NASDAQ,USD,Gilead,0,0,action
+GM,General Motors,NYSE,USD,General Motors,0,0,action
+GOOGL,Alphabet,NASDAQ,USD,"Alphabet,Google",1,0,action
+GS,Goldman Sachs,NYSE,USD,Goldman Sachs,0,0,action
+HD,Home Depot,NYSE,USD,Home Depot,0,0,action
+IBM,IBM,NYSE,USD,IBM,0,0,action
+INTC,Intel,NASDAQ,USD,Intel,0,0,action
+INTU,Intuit,NASDAQ,USD,Intuit,0,0,action
+ISRG,Intuitive Surgical,NASDAQ,USD,Intuitive Surgical,0,0,action
+JNJ,Johnson & Johnson,NYSE,USD,Johnson & Johnson,0,0,action
+JPM,JPMorgan Chase,NYSE,USD,JPMorgan,0,0,action
+KO,Coca-Cola,NYSE,USD,Coca-Cola,0,0,action
+LIN,Linde,NASDAQ,USD,Linde,0,0,action
+LLY,Eli Lilly,NYSE,USD,Eli Lilly,0,0,action
+LMT,Lockheed Martin,NYSE,USD,Lockheed Martin,0,0,action
+LOW,Lowe's,NYSE,USD,Lowe's,0,0,action
+LRCX,Lam Research,NASDAQ,USD,Lam Research,0,0,action
+MA,Mastercard,NYSE,USD,Mastercard,0,0,action
+MCD,McDonald's,NYSE,USD,McDonald's,0,0,action
+MDLZ,Mondelez International,NASDAQ,USD,Mondelez,0,0,action
+MDT,Medtronic,NYSE,USD,Medtronic,0,0,action
+META,Meta Platforms,NASDAQ,USD,"Meta,Meta Platforms,Facebook",1,0,action
+MMM,3M,NYSE,USD,3M,0,0,action
+MO,Altria,NYSE,USD,Altria,0,0,action
+MRK,Merck & Co.,NYSE,USD,Merck,0,0,action
+MS,Morgan Stanley,NYSE,USD,Morgan Stanley,0,0,action
+MSFT,Microsoft,NASDAQ,USD,Microsoft,1,0,action
+MU,Micron Technology,NASDAQ,USD,Micron,0,0,action
+NEE,NextEra Energy,NYSE,USD,NextEra,0,0,action
+NFLX,Netflix,NASDAQ,USD,Netflix,0,0,action
+NOW,ServiceNow,NYSE,USD,ServiceNow,0,0,action
+NVDA,Nvidia,NASDAQ,USD,"Nvidia,NVIDIA",1,0,action
+ORCL,Oracle,NYSE,USD,Oracle Corp,0,0,action
+PANW,Palo Alto Networks,NASDAQ,USD,Palo Alto Networks,0,0,action
+PEP,PepsiCo,NASDAQ,USD,PepsiCo,0,0,action
+PFE,Pfizer,NYSE,USD,Pfizer,0,0,action
+PG,Procter & Gamble,NYSE,USD,Procter & Gamble,0,0,action
+PLTR,Palantir,NASDAQ,USD,Palantir,0,0,action
+PM,Philip Morris International,NYSE,USD,Philip Morris,0,0,action
+QCOM,Qualcomm,NASDAQ,USD,Qualcomm,0,0,action
+RTX,RTX,NYSE,USD,RTX,0,0,action
+SBUX,Starbucks,NASDAQ,USD,Starbucks,0,0,action
+SCHW,Charles Schwab,NYSE,USD,Charles Schwab,0,0,action
+SNDK,Sandisk,NASDAQ,USD,Sandisk,0,0,action
+SO,Southern Company,NYSE,USD,Southern Company,0,0,action
+T,AT&T,NYSE,USD,AT&T,0,0,action
+TMO,Thermo Fisher Scientific,NYSE,USD,Thermo Fisher,0,0,action
+TMUS,T-Mobile US,NASDAQ,USD,T-Mobile,0,0,action
+TSLA,Tesla,NASDAQ,USD,Tesla,1,0,action
+TXN,Texas Instruments,NASDAQ,USD,Texas Instruments,0,0,action
+UBER,Uber,NYSE,USD,Uber,0,0,action
+UNH,UnitedHealth Group,NYSE,USD,UnitedHealth,0,0,action
+UNP,Union Pacific,NYSE,USD,Union Pacific,0,0,action
+UPS,United Parcel Service,NYSE,USD,UPS,0,0,action
+USB,U.S. Bancorp,NYSE,USD,U.S. Bancorp,0,0,action
+V,Visa,NYSE,USD,Visa Inc,0,0,action
+VZ,Verizon,NYSE,USD,Verizon,0,0,action
+WFC,Wells Fargo,NYSE,USD,Wells Fargo,0,0,action
+WMT,Walmart,NYSE,USD,Walmart,0,0,action
+XOM,ExxonMobil,NYSE,USD,ExxonMobil,0,0,action
+ADS.DE,Adidas,XETR,EUR,Adidas,0,0,action
+ADYEN.AS,Adyen,XAMS,EUR,Adyen,0,0,action
+AD.AS,Ahold Delhaize,XAMS,EUR,Ahold Delhaize,0,0,action
+AI.PA,Air Liquide,XPAR,EUR,Air Liquide,0,0,action
+AIR.PA,Airbus,XPAR,EUR,Airbus,0,0,action
+ALV.DE,Allianz,XETR,EUR,Allianz,0,0,action
+ABI.BR,Anheuser-Busch InBev,XBRU,EUR,"Anheuser-Busch InBev,AB InBev",0,0,action
+ARGX.BR,argenx,XBRU,EUR,argenx,0,0,action
+ASML.AS,ASML Holding,XAMS,EUR,ASML,0,0,action
+CS.PA,AXA,XPAR,EUR,AXA,0,0,action
+BAS.DE,BASF,XETR,EUR,BASF,0,0,action
+BAYN.DE,Bayer,XETR,EUR,Bayer,0,0,action
+BBVA.MC,BBVA,XMAD,EUR,BBVA,0,0,action
+BMW.DE,BMW,XETR,EUR,BMW,0,0,action
+BNP.PA,BNP Paribas,XPAR,EUR,BNP Paribas,0,0,action
+BN.PA,Danone,XPAR,EUR,Danone,0,0,action
+DBK.DE,Deutsche Bank,XETR,EUR,Deutsche Bank,0,0,action
+DB1.DE,Deutsche Börse,XETR,EUR,Deutsche Börse,0,0,action
+DHL.DE,Deutsche Post (DHL),XETR,EUR,"Deutsche Post,DHL",0,0,action
+DTE.DE,Deutsche Telekom,XETR,EUR,Deutsche Telekom,0,0,action
+ENEL.MI,Enel,XMIL,EUR,Enel,0,0,action
+ENGI.PA,Engie,XPAR,EUR,Engie,0,0,action
+ENI.MI,Eni,XMIL,EUR,Eni,0,0,action
+EL.PA,EssilorLuxottica,XPAR,EUR,EssilorLuxottica,0,0,action
+RACE.MI,Ferrari,XMIL,EUR,Ferrari,0,0,action
+RMS.PA,Hermès,XPAR,EUR,"Hermès,Hermes",0,0,action
+IBE.MC,Iberdrola,XMAD,EUR,Iberdrola,0,0,action
+ITX.MC,Inditex,XMAD,EUR,Inditex,0,0,action
+IFX.DE,Infineon Technologies,XETR,EUR,Infineon,0,0,action
+INGA.AS,ING Group,XAMS,EUR,ING,0,0,action
+ISP.MI,Intesa Sanpaolo,XMIL,EUR,Intesa Sanpaolo,0,0,action
+OR.PA,L'Oréal,XPAR,EUR,"L'Oréal,L'Oreal",0,0,action
+MC.PA,LVMH,XPAR,EUR,LVMH,0,0,action
+MBG.DE,Mercedes-Benz Group,XETR,EUR,Mercedes-Benz,0,0,action
+MUV2.DE,Munich Re,XETR,EUR,Munich Re,0,0,action
+NOKIA.HE,Nokia,XHEL,EUR,Nokia,0,0,action
+NDA-FI.HE,Nordea,XHEL,EUR,Nordea,0,0,action
+PRX.AS,Prosus,XAMS,EUR,Prosus,0,0,action
+RHM.DE,Rheinmetall,XETR,EUR,Rheinmetall,0,0,action
+SAF.PA,Safran,XPAR,EUR,Safran,0,0,action
+SGO.PA,Saint-Gobain,XPAR,EUR,Saint-Gobain,0,0,action
+SAN.PA,Sanofi,XPAR,EUR,Sanofi,0,0,action
+SAN.MC,Banco Santander,XMAD,EUR,Santander,0,0,action
+SAP.DE,SAP,XETR,EUR,SAP,0,0,action
+SU.PA,Schneider Electric,XPAR,EUR,Schneider Electric,0,0,action
+SIE.DE,Siemens,XETR,EUR,Siemens,0,0,action
+ENR.DE,Siemens Energy,XETR,EUR,Siemens Energy,0,0,action
+TTE.PA,TotalEnergies,XPAR,EUR,TotalEnergies,1,0,action
+UCG.MI,UniCredit,XMIL,EUR,UniCredit,0,0,action
+DG.PA,Vinci,XPAR,EUR,Vinci,0,0,action
+IWDA.AS,iShares Core MSCI World,XAMS,EUR,,0,1,etf

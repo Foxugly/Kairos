@@ -6,7 +6,7 @@ from .models import Bougie, StatutValeur, TauxChange, Valeur
 
 @admin.register(Valeur)
 class ValeurAdmin(admin.ModelAdmin):
-    list_display = ("ticker", "nom", "place", "devise", "statut", "imposee")
+    list_display = ("ticker", "nom", "place", "devise", "statut", "imposee", "reference")
     list_filter = ("statut", "place")
     search_fields = ("ticker", "nom")
     actions = ["activer"]
@@ -14,8 +14,12 @@ class ValeurAdmin(admin.ModelAdmin):
     @admin.action(description="Activer les valeurs sélectionnées")
     def activer(self, request, queryset):
         """Active la sélection, sans jamais dépasser `settings.UNIVERS_MAX` (tout ou rien)."""
+        # Les valeurs de référence ne comptent pas dans l'univers.
         a_activer = queryset.exclude(statut=StatutValeur.ACTIVE)
-        total = Valeur.objects.actives().count() + a_activer.count()
+        total = (
+            Valeur.objects.actives().filter(reference=False).count()
+            + a_activer.filter(reference=False).count()
+        )
         if total > settings.UNIVERS_MAX:
             self.message_user(
                 request,

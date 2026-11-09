@@ -20,9 +20,18 @@ class StatutValeur(models.TextChoices):
     INACTIVE = "inactive", "Inactive"
 
 
+class TypeTitre(models.TextChoices):
+    ACTION = "action", "Action"
+    ETF = "etf", "ETF"
+
+
 class ValeurQuerySet(models.QuerySet):
     def actives(self):
         return self.filter(statut=StatutValeur.ACTIVE)
+
+    def a_relever(self):
+        """Valeurs dont les cours sont relevés : actives, plus les valeurs de référence."""
+        return self.filter(models.Q(statut=StatutValeur.ACTIVE) | models.Q(reference=True))
 
 
 class Valeur(models.Model):
@@ -38,6 +47,11 @@ class Valeur(models.Model):
         max_length=10, choices=StatutValeur.choices, default=StatutValeur.PROPOSEE
     )
     imposee = models.BooleanField(default=False)
+    # Suivie pour comparaison (ex. IWDA.AS) : jamais tradée, hors de la limite de l'univers.
+    reference = models.BooleanField(default=False)
+    type_titre = models.CharField(
+        max_length=10, choices=TypeTitre.choices, default=TypeTitre.ACTION
+    )
 
     objects = ValeurQuerySet.as_manager()
 
