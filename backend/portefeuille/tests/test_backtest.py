@@ -11,6 +11,7 @@ from analyse.signaux import BougieJour, Sens, Signal
 from courtage.models import BaremeDonnees, RegleDonnees, TobDonnees
 from marche.models import Bougie, StatutValeur, TauxChange, Valeur
 from portefeuille.backtest import perte_max, rejouer
+from portefeuille.management.commands.backtest import taux_usd_journaliers
 from portefeuille.models import ResultatBacktest
 from portefeuille.strategie import Regles
 
@@ -156,6 +157,17 @@ class SignauxEtOrdresTests(SimpleTestCase):
         achat = rapport.ordres[0]
         self.assertEqual((achat.jour, achat.taux_eur), (J[4], D("0.8")))
 
+    def test_ouverture_au_taux_de_la_veille_jamais_celui_du_jour(self):
+        # Le taux de J est celui de la clôture de J : inconnu à l'ouverture de J.
+        taux = {J[0]: D("0.9"), J[4]: D("0.8")}
+        with mock.patch("portefeuille.backtest.signaux_du_jour", side_effect=achat_le(J[3])):
+            rapport = lancer({"UUU": plat(100), "IDX": plat(50)}, taux=taux)
+        achat = rapport.ordres[0]
+        self.assertEqual((achat.jour, achat.taux_eur), (J[4], D("0.9")))
+        # La valorisation à la clôture de J[4], elle, prend le taux de J[4].
+        titres = rapport.courbe[4][1] - (D("10000") - achat.montant_eur - achat.frais.total)
+        self.assertEqual(titres, achat.quantite * D("100") * D("0.8"))
+
     def test_valeur_usd_sans_taux_non_tradee(self):
         with mock.patch("portefeuille.backtest.signaux_du_jour", side_effect=achat_le(J[1])):
             rapport = lancer({"UUU": plat(100), "IDX": plat(50)}, taux={J[5]: D("0.9")})
@@ -255,6 +267,25 @@ class CommandeBacktestTests(TestCase):
         self.assertEqual(len(resultat.courbe), 23)
         self.assertIn("Performance", texte)
         self.assertIn("barème en vigueur aujourd'hui", texte)
+        self.assertIn("Positions prises     : 0", texte)
+        self.assertIn("1 valeurs)", texte)
+        self.assertIn("hors achat de l'indice", texte)
+
+    def test_valeurs_comptees_sans_bougie_de_l_indice(self):
+        aaa = Valeur.objects.create(ticker="AAA.PA", nom="A", place="XPAR", devise="EUR",
+                                    statut=StatutValeur.ACTIVE)
+        creer_bougies(aaa, "100")
+        sortie = StringIO()
+        call_command("backtest", "--depuis", "2026-01-07", stdout=sortie)
+        self.assertIn("(23 séances, 1 valeurs)", sortie.getvalue())
+
+    def test_taux_usd_journaliers_seulement(self):
+        minuit = datetime(2026, 1, 5, tzinfo=UTC)
+        TauxChange.objects.create(devise="USD", instant=minuit, taux=D("0.9"))
+        # Taux relevé en séance par le cycle, le même jour et plus tard : ignoré.
+        TauxChange.objects.create(devise="USD", instant=minuit + timedelta(hours=15), taux=D("0.7"))
+        TauxChange.objects.create(devise="USD", instant=minuit + timedelta(days=1, hours=9), taux=D("0.6"))
+        self.assertEqual(taux_usd_journaliers(), {J[0]: D("0.9")})
 
     def test_portefeuille_inconnu(self):
         from django.core.management.base import CommandError

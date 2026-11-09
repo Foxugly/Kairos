@@ -3,12 +3,13 @@
 Mêmes fonctions que le cycle : `signaux_du_jour`, `stops`, `decider` et l'exécution du broker simulé.
 Chaque jour J (union des séances de toutes les valeurs ; une valeur sans bougie ce jour-là n'est pas
 cotable) : l'indice est acheté à l'ouverture du premier jour ; les stops se contrôlent sur le plus bas de J
-(sortie au niveau du stop, ou à l'ouverture si elle est déjà en dessous) ; les ordres issus de la clôture de
+(sortie au niveau du stop, ou à l'ouverture si elle est déjà en dessous ; ordres en séance au taux USD
+d'avant J, valorisation au taux de J) ; les ordres issus de la clôture de
 la séance précédente de la valeur s'exécutent à l'ouverture de J ; le plus haut des positions est mis à
 jour (après les stops) ; les signaux se calculent à la clôture de J ; le portefeuille est valorisé.
 """
 
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass, field, replace
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
@@ -19,7 +20,7 @@ from courtage.frais import CENTIME, DetailFrais
 from courtage.models import BaremeDonnees
 
 from .execution import HISTORIQUE
-from .strategie import UN, Cotation, PositionVue, Regles, decider, stops
+from .strategie import UN, Cotation, PositionVue, Regles, decider, niveau_stop, stops
 
 FRACTION = Decimal("0.0001")
 
@@ -137,18 +138,21 @@ class _Rejeu:
     # -- cours ---------------------------------------------------------------------------------------
 
     def _bougie(self, ticker: str, jour: date) -> BougieJour | None:
-        i = self.rang[ticker].get(jour)
+        i = self.rang.get(ticker, {}).get(jour)  # l'indice peut n'avoir aucune bougie
         return None if i is None else self.series[ticker][i]
 
-    def _taux(self, devise: str, jour: date) -> Decimal | None:
+    def _taux(self, devise: str, jour: date, en_seance: bool) -> Decimal | None:
+        """Taux le plus récent connu : à la clôture de J, celui de J ; en séance, celui d'avant J
+        (le taux de J est sa clôture, inconnu à l'ouverture)."""
         if devise == "EUR":
             return UN
-        i = bisect_right(self.dates_taux, jour)
+        i = (bisect_left if en_seance else bisect_right)(self.dates_taux, jour)
         return self.taux_usd[self.dates_taux[i - 1]] if i else None
 
     def _cotation(self, ticker: str, prix: Decimal, jour: date) -> Cotation | None:
+        """Cotation pour un ordre en séance (ouverture ou stop) : taux d'avant J."""
         devise, place, type_titre = self.meta[ticker]
-        taux = self._taux(devise, jour)
+        taux = self._taux(devise, jour, en_seance=True)
         if taux is None:
             return None
         return Cotation(prix=prix, devise=devise, place=place, type_titre=type_titre, taux_eur=taux)
@@ -159,7 +163,7 @@ class _Rejeu:
             b = self._bougie(ticker, jour)
             cours = b.ouverture if a_l_ouverture and b is not None else self.derniers[ticker]
             # Une position n'a pu être achetée qu'avec un taux : il en existe un à cette date.
-            total += p.quantite * cours * self._taux(self.meta[ticker][0], jour)
+            total += p.quantite * cours * self._taux(self.meta[ticker][0], jour, en_seance=a_l_ouverture)
         return total.quantize(CENTIME, ROUND_HALF_UP)
 
     # -- ordres --------------------------------------------------------------------------------------
@@ -211,13 +215,6 @@ class _Rejeu:
 
     # -- étapes du jour ------------------------------------------------------------------------------
 
-    def _niveau_stop(self, p: _Position) -> Decimal:
-        """Cours de déclenchement le plus haut parmi les stops actifs (mêmes seuils que `stops`)."""
-        niveau = p.prix_entree * (UN - self.regles.stop_perte)
-        if p.plus_haut >= p.prix_entree * (UN + self.regles.seuil_suiveur):
-            niveau = max(niveau, p.plus_haut * (UN - self.regles.ecart_suiveur))
-        return niveau
-
     def _stops(self, jour: date) -> set[str]:
         """Ventes sur stop touché par le plus bas du jour ; rend les valeurs vendues."""
         au_plus_bas = {}
@@ -232,7 +229,7 @@ class _Rejeu:
             ticker = intention.ticker
             p = self.positions[ticker]
             # Le cours descend jusqu'au stop, sauf ouverture déjà en dessous (gap) : exécution à l'ouverture.
-            prix = min(self._bougie(ticker, jour).ouverture, self._niveau_stop(p))
+            prix = min(self._bougie(ticker, jour).ouverture, niveau_stop(self._vue(ticker, p), self.regles))
             cotation = replace(au_plus_bas[ticker], prix=prix)
             # Motif relu au prix de sortie : « stop suiveur » si c'est lui qui a été atteint en premier.
             motif = stops([self._vue(ticker, p)], {ticker: cotation}, self.regles)[0].motif
@@ -290,7 +287,7 @@ class _Rejeu:
         total = self.liquidites + self._titres(jour, a_l_ouverture=False)
         indice_total = self.capital
         if self.indice_ordre is not None:
-            cours = self.derniers[self.indice] * self._taux(self.meta[self.indice][0], jour)
+            cours = self.derniers[self.indice] * self._taux(self.meta[self.indice][0], jour, en_seance=False)
             indice_total = self.indice_liquidites + (self.indice_quantite * cours).quantize(
                 CENTIME, ROUND_HALF_UP
             )

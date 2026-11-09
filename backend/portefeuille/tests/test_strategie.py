@@ -3,7 +3,7 @@ from unittest import TestCase
 
 from analyse.signaux import Sens, Signal
 from courtage.models import BaremeDonnees, RegleDonnees
-from portefeuille.strategie import Cotation, Intention, PositionVue, Regles, decider, stops
+from portefeuille.strategie import Cotation, Intention, PositionVue, Regles, decider, niveau_stop, stops
 
 D = Decimal
 
@@ -65,6 +65,11 @@ class StopsTests(TestCase):
 
     def test_valeur_sans_cours_ignoree(self):
         self.assertEqual(stops([pos()], {}, REGLES), [])
+
+    def test_niveau_stop(self):
+        self.assertEqual(niveau_stop(pos(), REGLES), D("95"))  # suiveur pas armé : stop-loss
+        self.assertEqual(niveau_stop(pos(plus_haut="104"), REGLES), D("95"))
+        self.assertEqual(niveau_stop(pos(plus_haut="110"), REGLES), D("104.5"))  # suiveur armé
 
 
 class DeciderTests(TestCase):

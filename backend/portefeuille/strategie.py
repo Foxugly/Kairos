@@ -74,23 +74,29 @@ def _pourcent(fraction: Decimal) -> str:
     return texte.replace(".", ",")
 
 
+def _niveau_perte(p: PositionVue, regles: Regles) -> Decimal:
+    return p.prix_entree * (UN - regles.stop_perte)
+
+
+def niveau_stop(p: PositionVue, regles: Regles) -> Decimal:
+    """Cours de déclenchement : le plus haut des stops actifs (stop-loss, et stop suiveur une fois armé)."""
+    niveau = _niveau_perte(p, regles)
+    if p.plus_haut >= p.prix_entree * (UN + regles.seuil_suiveur):
+        niveau = max(niveau, p.plus_haut * (UN - regles.ecart_suiveur))
+    return niveau
+
+
 def stops(positions: list[PositionVue], marche: Marche, regles: Regles) -> list[Intention]:
     """Ventes déclenchées par le stop-loss ou le stop suiveur ; valeur sans cours : on garde."""
     ventes = []
     for p in positions:
         cotation = marche.get(p.ticker)
-        if cotation is None:
+        if cotation is None or cotation.prix > niveau_stop(p, regles):
             continue
-        prix = cotation.prix
-        if prix <= p.prix_entree * (UN - regles.stop_perte):
+        if cotation.prix <= _niveau_perte(p, regles):
             motif = f"stop-loss −{_pourcent(regles.stop_perte)} %"
-        elif (
-            p.plus_haut >= p.prix_entree * (UN + regles.seuil_suiveur)
-            and prix <= p.plus_haut * (UN - regles.ecart_suiveur)
-        ):
-            motif = "stop suiveur"
         else:
-            continue
+            motif = "stop suiveur"
         ventes.append(Intention(p.ticker, "vendre", p.quantite, motif))
     return ventes
 

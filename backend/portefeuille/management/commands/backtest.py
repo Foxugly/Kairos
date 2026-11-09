@@ -1,5 +1,5 @@
 from dataclasses import asdict
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand, CommandError
@@ -21,6 +21,18 @@ def _pourcent(fraction: Decimal, signe: bool = True) -> str:
 
 def _euros(montant: Decimal) -> str:
     return f"{montant:,.2f} €".replace(",", " ").replace(".", ",")
+
+
+def taux_usd_journaliers() -> dict[date, Decimal]:
+    """Taux USD de clôture par jour (chargés par `historique`, à minuit UTC).
+
+    Les taux relevés en séance par le cycle sont écartés : ils ne remplacent jamais la clôture du jour.
+    """
+    return {
+        instant.date(): taux
+        for instant, taux in TauxChange.objects.filter(devise="USD").values_list("instant", "taux")
+        if instant.astimezone(UTC).time() == time(0)
+    }
 
 
 def _il_y_a_cinq_ans() -> date:
@@ -54,12 +66,7 @@ class Command(BaseCommand):
         series = self._series(valeurs, depuis)
         if not any(b.jour >= depuis for bougies in series.values() for b in bougies):
             raise CommandError("aucune bougie 1d sur la période : lancer `manage.py historique` d'abord")
-        taux_usd = {
-            instant.date(): taux
-            for instant, taux in TauxChange.objects.filter(devise="USD")
-            .order_by("instant")
-            .values_list("instant", "taux")
-        }
+        taux_usd = taux_usd_journaliers()
         meta = {v.ticker: (v.devise, v.place, v.type_titre) for v in valeurs}
         regles = Regles.depuis(p)
         rapport = rejouer(
@@ -67,7 +74,8 @@ class Command(BaseCommand):
             debut=depuis,
         )
         self._enregistrer(p, regles, bareme, rapport)
-        self._afficher(p, bareme, rapport, len(series) - 1)
+        nb_valeurs = sum(1 for ticker in series if ticker != p.indice.ticker)
+        self._afficher(p, bareme, rapport, nb_valeurs)
 
     @staticmethod
     def _series(valeurs, depuis: date) -> dict[str, list[BougieJour]]:
@@ -104,9 +112,10 @@ class Command(BaseCommand):
             f"Performance          : {_pourcent(r.performance)}",
             f"Indice ({p.indice.ticker})  : {_pourcent(r.performance_indice)}",
             f"Écart                : {_pourcent(r.ecart)}",
-            f"Positions ouvertes   : {r.nb_positions}",
+            f"Positions prises     : {r.nb_positions}",
             f"Positions gagnantes  : {_pourcent(r.taux_gagnantes, signe=False)} des positions fermées",
-            f"Frais totaux         : {_euros(r.frais_total)} (dont TOB {_euros(r.tob_total)})",
+            f"Frais totaux         : {_euros(r.frais_total)} (dont TOB {_euros(r.tob_total)}), hors achat de "
+            "l'indice, compté dans sa performance",
             f"Perte maximale       : {_pourcent(r.perte_max, signe=False)} depuis un sommet",
         ]
         self.stdout.write("\n".join(lignes))
