@@ -107,6 +107,7 @@ class Command(BaseCommand):
             f"Backtest du portefeuille {p.nom} du {r.debut} au {r.fin} ({len(r.courbe)} séances, "
             f"{nb_valeurs} valeurs)",
             f"Barème : {bareme.nom} — barème en vigueur aujourd'hui, appliqué à toute la période",
+            "Biais du survivant : univers actuel appliqué à toute la période.",
             f"Capital initial      : {_euros(p.capital_initial)}",
             f"Valeur finale        : {_euros(r.valeur_finale)}",
             f"Performance          : {_pourcent(r.performance)}",

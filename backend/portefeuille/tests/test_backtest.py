@@ -270,6 +270,7 @@ class CommandeBacktestTests(TestCase):
         self.assertIn("Positions prises     : 0", texte)
         self.assertIn("1 valeurs)", texte)
         self.assertIn("hors achat de l'indice", texte)
+        self.assertIn("Biais du survivant : univers actuel appliqué à toute la période.", texte)
 
     def test_valeurs_comptees_sans_bougie_de_l_indice(self):
         aaa = Valeur.objects.create(ticker="AAA.PA", nom="A", place="XPAR", devise="EUR",
