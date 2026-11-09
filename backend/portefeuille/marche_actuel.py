@@ -57,6 +57,7 @@ def marche_et_absences(maintenant: datetime) -> tuple[Marche, dict[str, str]]:
         cotations[valeur.ticker] = Cotation(
             prix=derniere.cloture, devise=valeur.devise, place=valeur.place,
             type_titre=valeur.type_titre, taux_eur=taux[valeur.devise],
+            bas=derniere.bas, haut=derniere.haut,
         )
     return cotations, absences
 

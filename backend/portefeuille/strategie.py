@@ -55,6 +55,17 @@ class Cotation:
     place: str
     type_titre: str
     taux_eur: Decimal
+    # Extrêmes de la bougie du prix (dernière 5m en direct) : déclenchement des stops et stop suiveur.
+    bas: Decimal | None = None
+    haut: Decimal | None = None
+
+    @property
+    def plus_bas(self) -> Decimal:
+        return self.prix if self.bas is None else self.bas
+
+    @property
+    def plus_haut(self) -> Decimal:
+        return self.prix if self.haut is None else self.haut
 
 
 Marche = dict[str, Cotation]

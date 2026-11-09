@@ -46,7 +46,8 @@ et messages de commit en français. Dépôt public : aucun secret, aucune donné
   sème IWDA.AS et les portefeuilles « IA » et « Technique » (10 000 €, indice IWDA.AS). `strategie` (code pur,
   partagé cycle/backtest) : `Regles.depuis(p)`, `stops`, `decider`. `execution` : étapes « decisions » (une fois
   par jour après 22:30 UTC, signaux sur les 120 dernières bougies 1d → `Decision` pour le jour ouvré suivant) et
-  « execution » (achat de l'indice au démarrage, stops à chaque cycle sur le dernier cours 5 min, décisions du
+  « execution » (achat de l'indice au démarrage, stops à chaque cycle déclenchés par le plus bas de la dernière bougie 5m et exécutés à son dernier cours, plus haut
+  suiveur relevé sur son plus haut, décisions du
   jour au premier cycle où la valeur est cotable, sinon abandonnées ; revalorisation).
   `manage.py backtest [--depuis AAAA-MM-JJ] [--portefeuille Technique]` : rejoue (`backtest.rejouer`, pur) les
   règles sur les bougies 1d en base (lancer `historique --jours 1900` avant pour 5 ans), enregistre un

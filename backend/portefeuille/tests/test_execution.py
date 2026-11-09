@@ -265,6 +265,29 @@ class StopsTests(Base):
         executer(MARDI_MATIN + timedelta(minutes=5))
         self.assertEqual(Position.objects.get().plus_haut, Decimal("103"))
 
+    def bougie_5m(self, cloture, bas, haut):
+        return Bougie.objects.create(
+            valeur=self.tte, intervalle="5m", debut=MARDI_MATIN - timedelta(minutes=5),
+            ouverture=Decimal(cloture), haut=Decimal(haut), bas=Decimal(bas), cloture=Decimal(cloture), volume=1,
+        )
+
+    def test_stop_declenche_par_le_plus_bas_execute_au_dernier_cours(self):
+        self.position(self.tte)
+        self.bougie_5m("96", bas="94.5", haut="96")
+        executer(MARDI_MATIN)
+        position = Position.objects.get()
+        self.assertEqual(position.motif_sortie, "stop-loss −5 %")
+        # Dernier cours 96 moins 0,1 % de glissement, et non le plus bas.
+        self.assertEqual(position.prix_sortie, Decimal("95.9040"))
+
+    def test_plus_haut_de_la_bougie_arme_le_suiveur(self):
+        self.position(self.tte)
+        self.bougie_5m("104", bas="103", haut="106")
+        executer(MARDI_MATIN)
+        position = Position.objects.get()
+        self.assertEqual(position.plus_haut, Decimal("106"))
+        self.assertIsNone(position.fermee_le)
+
     def test_position_sans_cours_signalee(self):
         self.position(self.aapl, prix="200", taux="0.9")
         resultat = executer(MARDI_MATIN)

@@ -2,10 +2,11 @@
 
 Les signaux se calculent une fois par jour sur les bougies 1d clôturées et deviennent des `Decision`
 pour le jour ouvré suivant ; à chaque cycle, `executer` achète l'indice au démarrage, surveille les
-stops, exécute les décisions du jour dont la valeur est cotable, puis revalorise le portefeuille.
+stops (sur le plus bas de la dernière bougie 5m), exécute les décisions du jour dont la valeur est cotable, puis revalorise le portefeuille.
 """
 
 import logging
+from dataclasses import replace
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from zoneinfo import ZoneInfo
@@ -189,16 +190,16 @@ class _Passage:
             pos.valeur.ticker: pos
             for pos in p.positions.filter(fermee_le__isnull=True).select_related("valeur")
         }
-        for ticker, pos in ouvertes.items():
-            cotation = self.cotations.get(ticker)
-            if cotation is None:
+        for ticker in ouvertes:
+            if ticker not in self.cotations:
                 self.bilan["sans_cours"][ticker] = self._absence(ticker)
-            elif cotation.prix > pos.plus_haut:
-                pos.plus_haut = cotation.prix
-                pos.save(update_fields=["plus_haut"])
 
+        # Comme le backtest sur la bougie du jour : stops déclenchés par le plus bas de la dernière bougie,
+        # puis plus haut des positions restantes mis à jour par son plus haut. La vente se fait au dernier
+        # cours (clôture de la bougie), avec glissement.
         regles = Regles.depuis(p)
-        for intention in stops(self._vues(ouvertes), self.cotations, regles):
+        au_plus_bas = {t: replace(c, prix=c.plus_bas) for t, c in self.cotations.items()}
+        for intention in stops(self._vues(ouvertes), au_plus_bas, regles):
             pos = ouvertes[intention.ticker]
             decision = Decision(
                 portefeuille=p, valeur=pos.valeur, instant=self.maintenant,
@@ -206,6 +207,11 @@ class _Passage:
             )
             if self._vendre(pos, intention.motif, decision, une_fois_par_jour=True):
                 del ouvertes[intention.ticker]
+        for ticker, pos in ouvertes.items():
+            cotation = self.cotations.get(ticker)
+            if cotation is not None and cotation.plus_haut > pos.plus_haut:
+                pos.plus_haut = cotation.plus_haut
+                pos.save(update_fields=["plus_haut"])
 
         self._decisions_du_jour(ouvertes, regles)
 
