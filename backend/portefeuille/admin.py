@@ -30,7 +30,7 @@ class PositionAdmin(LectureSeule):
 
 @admin.register(Ordre)
 class OrdreAdmin(LectureSeule):
-    list_display = ("instant", "portefeuille", "sens", "position", "quantite", "frais_total")
+    list_display = ("instant", "portefeuille", "sens", "valeur", "quantite", "frais_total")
     list_filter = ("portefeuille", "sens")
 
 

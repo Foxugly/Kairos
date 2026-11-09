@@ -115,7 +115,13 @@ class Ordre(models.Model):
     """Ordre simulé exécuté, avec le détail des frais (EUR)."""
 
     portefeuille = models.ForeignKey(Portefeuille, on_delete=models.CASCADE, related_name="ordres")
-    position = models.ForeignKey(Position, on_delete=models.CASCADE, related_name="ordres")
+    # Vide pour l'achat de l'indice de comparaison (hors positions du portefeuille).
+    position = models.ForeignKey(
+        Position, null=True, blank=True, on_delete=models.CASCADE, related_name="ordres"
+    )
+    valeur = models.ForeignKey(
+        "marche.Valeur", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
     sens = models.CharField(max_length=10, choices=SensOrdre.choices)
     quantite = models.PositiveIntegerField()
     prix = models.DecimalField(max_digits=14, decimal_places=4)
@@ -134,7 +140,7 @@ class Ordre(models.Model):
         ordering = ["-instant"]
 
     def __str__(self):
-        return f"{self.sens} {self.quantite} {self.position.valeur.ticker}"
+        return f"{self.sens} {self.quantite} {self.valeur.ticker if self.valeur_id else ''}"
 
 
 class Valorisation(models.Model):

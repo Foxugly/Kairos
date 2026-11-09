@@ -125,19 +125,26 @@ class IndiceTests(Base):
         self.assertEqual(self.p.indice_liquidites, Decimal("73.26"))
         self.assertEqual(self.p.demarre, MARDI_MATIN)
         self.assertEqual(self.p.liquidites, Decimal("10000"))
+        # Détail des frais gardé sur un ordre sans position.
+        ordre = Ordre.objects.get()
+        self.assertEqual((ordre.valeur, ordre.position, ordre.sens), (self.iwda, None, SensOrdre.ACHAT))
+        self.assertEqual((ordre.quantite, ordre.prix, ordre.montant_eur), (99, Decimal("100.1000"), Decimal("9909.90")))
+        self.assertEqual((ordre.courtage, ordre.change, ordre.tob), (Decimal("4.95"), Decimal("0.00"), Decimal("11.89")))
+        self.assertEqual(ordre.frais_total, self.p.capital_initial - self.p.indice_liquidites - ordre.montant_eur)
 
         bougie(self.iwda, MARDI_MATIN, "90")
         executer(MARDI_MATIN + timedelta(minutes=5))
         self.p.refresh_from_db()
         self.assertEqual(self.p.indice_quantite, Decimal(99))
         self.assertEqual(self.p.demarre, MARDI_MATIN)
+        self.assertEqual(Ordre.objects.count(), 1)
 
     def test_indice_sans_cours_pas_de_demarrage(self):
         resultat = executer(MARDI_MATIN)
         self.p.refresh_from_db()
         self.assertIsNone(self.p.demarre)
         self.assertEqual(self.p.indice_quantite, 0)
-        self.assertIn("IWDA.AS", resultat["portefeuilles"]["Technique"]["sans_cours"])
+        self.assertEqual(resultat["portefeuilles"]["Technique"]["sans_cours"], {"IWDA.AS": "pas de cours récent"})
         self.assertFalse(Valorisation.objects.exists())
 
     def test_valorisation_enregistree(self):
@@ -205,7 +212,7 @@ class DecisionsExecuteesTests(Base):
     def test_valeur_sans_cours_gardee_puis_abandonnee_le_lendemain(self):
         d = self.decision(self.aapl)
         resultat = executer(MARDI_MATIN)  # New York fermé
-        self.assertEqual(resultat["portefeuilles"]["Technique"]["en_attente"], 1)
+        self.assertEqual(resultat["portefeuilles"]["Technique"]["en_attente"], {"AAPL": "place fermée"})
         executer(MARDI_MATIN + timedelta(hours=1))
         d.refresh_from_db()
         self.assertEqual(d.action, ActionDecision.ACHETER)
@@ -261,7 +268,7 @@ class StopsTests(Base):
     def test_position_sans_cours_signalee(self):
         self.position(self.aapl, prix="200", taux="0.9")
         resultat = executer(MARDI_MATIN)
-        self.assertEqual(resultat["portefeuilles"]["Technique"]["sans_cours"], ["AAPL"])
+        self.assertEqual(resultat["portefeuilles"]["Technique"]["sans_cours"], {"AAPL": "place fermée"})
         self.assertIsNone(Position.objects.get().fermee_le)
 
 
@@ -286,15 +293,18 @@ class ReconciliationTests(Base):
         executer(MERCREDI_MATIN)
         self.assertFalse(Position.objects.filter(fermee_le__isnull=True).exists())
 
-        achats = Ordre.objects.filter(sens=SensOrdre.ACHAT).aggregate(
+        portefeuille = Ordre.objects.filter(position__isnull=False)
+        achats = portefeuille.filter(sens=SensOrdre.ACHAT).aggregate(
             s=Sum(F("montant_eur") + F("frais_total"))
         )["s"]
-        ventes = Ordre.objects.filter(sens=SensOrdre.VENTE).aggregate(
+        ventes = portefeuille.filter(sens=SensOrdre.VENTE).aggregate(
             s=Sum(F("montant_eur") - F("frais_total"))
         )["s"]
-        self.assertEqual(Ordre.objects.count(), 4)
-        self.assertTrue(Ordre.objects.filter(change__gt=0).exists())
-        cout_indice = Decimal("9926.74")
+        self.assertEqual(portefeuille.count(), 4)
+        self.assertTrue(portefeuille.filter(change__gt=0).exists())
+        indice = Ordre.objects.get(position__isnull=True)
+        cout_indice = indice.montant_eur + indice.frais_total
+        self.assertEqual(cout_indice, Decimal("9926.74"))
         self.p.refresh_from_db()
         # Deux poches de `capital_initial` : le portefeuille, et l'indice acheté au départ et gardé.
         self.assertEqual(self.p.liquidites, capital - achats + ventes)
@@ -350,11 +360,16 @@ class DeciderDuJourTests(Base):
 
     def test_idempotent(self):
         historique(self.tte, 60)
-        with mock.patch.object(execution, "signaux_du_jour", return_value=self.signaux("achat", "achat")):
+        with mock.patch.object(
+            execution, "signaux_du_jour", return_value=self.signaux("achat", "achat")
+        ) as calcul:
             decider_du_jour(MARDI_SOIR)
             nombre = Decision.objects.count()
-            decider_du_jour(MARDI_SOIR + timedelta(minutes=5))
+            resultat = decider_du_jour(MARDI_SOIR + timedelta(minutes=5))
         self.assertEqual(Decision.objects.count(), nombre)
+        # Tous les portefeuilles ont déjà décidé : les signaux ne sont pas recalculés.
+        self.assertEqual(calcul.call_count, 1)
+        self.assertTrue(resultat["deja_decide"])
         self.assertEqual(Decision.objects.filter(valeur=self.tte).count(), 1)
 
     def test_vente_seulement_si_detenue(self):
@@ -371,3 +386,69 @@ class DeciderDuJourTests(Base):
         with mock.patch.object(execution, "signaux_du_jour", return_value=self.signaux("achat", "achat")) as calcul:
             decider_du_jour(MARDI_SOIR)
         calcul.assert_not_called()
+
+
+class RaisonsEtBruitTests(Base):
+    def setUp(self):
+        super().setUp()
+        self.demarrer()
+
+    def test_raisons_d_attente(self):
+        self.decision(self.tte)
+        self.decision(self.aapl)
+        bougie(self.aapl, MARDI_APREM - timedelta(minutes=5), "200")
+        resultat = executer(MARDI_APREM)
+        self.assertEqual(
+            resultat["portefeuilles"]["Technique"]["en_attente"],
+            {"TTE.PA": "pas de cours récent", "AAPL": "pas de taux USD récent"},
+        )
+
+    def test_stop_refuse_une_seule_fois_par_jour(self):
+        self.position(self.tte)
+        bougie(self.tte, MARDI_MATIN - timedelta(minutes=5), "94")
+        bougie(self.tte, MARDI_MATIN, "94")
+        bougie(self.tte, MERCREDI_MATIN - timedelta(minutes=5), "94")
+        with mock.patch("courtage.broker.calculer_frais", side_effect=ValueError("Aucune règle")):
+            executer(MARDI_MATIN)
+            resultat = executer(MARDI_MATIN + timedelta(minutes=5))
+            self.assertEqual(Decision.objects.filter(action=ActionDecision.REFUSER).count(), 1)
+            self.assertTrue(resultat["portefeuilles"]["Technique"]["refus"])
+            executer(MERCREDI_MATIN)
+        self.assertEqual(Decision.objects.filter(action=ActionDecision.REFUSER).count(), 2)
+        self.assertIsNone(Position.objects.get().fermee_le)
+
+    def test_achat_de_l_indice_refuse_une_seule_fois_par_jour(self):
+        Portefeuille.objects.filter(pk=self.p.pk).update(demarre=None)
+        bougie(self.iwda, MARDI_MATIN - timedelta(minutes=5), "100")
+        bougie(self.iwda, MARDI_MATIN, "100")
+        with mock.patch("courtage.broker.calculer_frais", side_effect=ValueError("Aucune règle")):
+            executer(MARDI_MATIN)
+            executer(MARDI_MATIN + timedelta(minutes=5))
+        refus = Decision.objects.get(action=ActionDecision.REFUSER)
+        self.assertEqual(refus.valeur, self.iwda)
+        self.assertIn("Aucune règle", refus.motif)
+        self.p.refresh_from_db()
+        self.assertIsNone(self.p.demarre)
+
+
+class IsolementTests(Base):
+    def test_un_portefeuille_en_panne_n_arrete_pas_les_autres(self):
+        Portefeuille.objects.create(nom="Casse", indice=self.iwda)
+        bougie(self.iwda, MARDI_MATIN - timedelta(minutes=5), "100")
+        original = execution._Passage.derouler
+
+        def derouler(passage):
+            if passage.p.nom == "Casse":
+                raise RuntimeError("panne")
+            return original(passage)
+
+        with (
+            mock.patch.object(execution._Passage, "derouler", derouler),
+            mock.patch.object(execution.sentry_sdk, "capture_exception") as sentry,
+            self.assertLogs("portefeuille.execution", "ERROR"),
+        ):
+            resultat = executer(MARDI_MATIN)
+        self.assertEqual(resultat["portefeuilles"]["Casse"], {"erreur": "panne"})
+        sentry.assert_called_once()
+        self.assertTrue(Valorisation.objects.filter(portefeuille=self.p).exists())
+        self.assertFalse(Valorisation.objects.filter(portefeuille__nom="Casse").exists())

@@ -8,7 +8,9 @@ stops, exécute les décisions du jour dont la valeur est cotable, puis revalori
 import logging
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import ROUND_HALF_UP, Decimal
+from zoneinfo import ZoneInfo
 
+import sentry_sdk
 from django.db import transaction
 
 from analyse.signaux import BougieJour, Sens, Signal, score, signaux_du_jour
@@ -16,8 +18,9 @@ from courtage.broker import Broker, Execution, OrdreDemande, broker
 from courtage.frais import CENTIME
 from courtage.models import Bareme
 from marche.models import Bougie, TauxChange, Valeur
+from marche.seances import FUSEAU_PLACE
 
-from .marche_actuel import marche
+from .marche_actuel import marche_et_absences
 from .models import ActionDecision, Decision, Ordre, Portefeuille, Position, SensOrdre, Valorisation
 from .strategie import Cotation, Marche, PositionVue, Regles, decider, stops
 
@@ -68,6 +71,10 @@ def decider_du_jour(maintenant: datetime) -> dict:
     if maintenant.time() < HEURE_DECISION:
         return {"attente": "avant 22:30 UTC"}
     jour = maintenant.date()
+    pour_le = prochain_jour_ouvre(jour)
+    portefeuilles = Portefeuille.objects.filter(actif=True)
+    if not portefeuilles.exclude(decisions__pour_le=pour_le).exists():
+        return {"jour": jour, "deja_decide": True}
 
     # Les signaux ne dépendent que des cours : calculés une fois pour tous les portefeuilles.
     signaux: dict[str, list[Signal]] = {}
@@ -81,10 +88,9 @@ def decider_du_jour(maintenant: datetime) -> dict:
     if not signaux:
         return {"attente": "aucune bougie journalière du jour", "sans_bougie": sans_bougie}
 
-    pour_le = prochain_jour_ouvre(jour)
     valeurs = {v.ticker: v for v in Valeur.objects.filter(ticker__in=signaux)}
     resultat: dict = {"jour": jour, "portefeuilles": {}}
-    for p in Portefeuille.objects.filter(actif=True):
+    for p in portefeuilles:
         with transaction.atomic():
             p = Portefeuille.objects.select_for_update().get(pk=p.pk)
             if p.decisions.filter(pour_le=pour_le).exists():
@@ -139,25 +145,32 @@ def _decider_portefeuille(p, signaux, valeurs, sans_bougie, maintenant, pour_le)
 def executer(maintenant: datetime) -> dict:
     """Un passage d'exécution par portefeuille actif, chacun sous verrou de sa ligne."""
     maintenant = maintenant.astimezone(UTC)
-    cotations = marche(maintenant)
+    cotations, absences = marche_et_absences(maintenant)
     resultat: dict = {"cotees": len(cotations), "portefeuilles": {}}
     for pk, nom in Portefeuille.objects.filter(actif=True).values_list("pk", "nom"):
-        with transaction.atomic():
-            resultat["portefeuilles"][nom] = _Passage(pk, cotations, maintenant).derouler()
+        # Un portefeuille en panne n'empêche ni l'exécution ni la valorisation des autres.
+        try:
+            with transaction.atomic():
+                resultat["portefeuilles"][nom] = _Passage(pk, cotations, absences, maintenant).derouler()
+        except Exception as exc:
+            logger.exception("Exécution du portefeuille %s en échec", nom)
+            sentry_sdk.capture_exception(exc)
+            resultat["portefeuilles"][nom] = {"erreur": str(exc) or type(exc).__name__}
     return resultat
 
 
 class _Passage:
-    def __init__(self, pk: int, cotations: Marche, maintenant: datetime):
+    def __init__(self, pk: int, cotations: Marche, absences: dict[str, str], maintenant: datetime):
         # Verrou de la ligne : deux passages simultanés n'exécutent pas deux fois la même décision.
         self.p = Portefeuille.objects.select_for_update().select_related("indice").get(pk=pk)
         self.cotations = cotations
+        self.absences = absences
         self.maintenant = maintenant
         self.jour = maintenant.date()
         self.broker: Broker = broker(self.p.broker)
         self.bilan: dict = {
             "indice": None, "ventes": [], "achats": [], "refus": [],
-            "en_attente": 0, "abandonnees": 0, "sans_cours": [],
+            "en_attente": {}, "abandonnees": 0, "sans_cours": {},
         }
 
     def derouler(self) -> dict:
@@ -172,7 +185,7 @@ class _Passage:
         for ticker, pos in ouvertes.items():
             cotation = self.cotations.get(ticker)
             if cotation is None:
-                self.bilan["sans_cours"].append(ticker)
+                self.bilan["sans_cours"][ticker] = self._absence(ticker)
             elif cotation.prix > pos.plus_haut:
                 pos.plus_haut = cotation.prix
                 pos.save(update_fields=["plus_haut"])
@@ -184,7 +197,7 @@ class _Passage:
                 portefeuille=p, valeur=pos.valeur, instant=self.maintenant,
                 action=ActionDecision.VENDRE, motif=intention.motif,
             )
-            if self._vendre(pos, intention.motif, decision):
+            if self._vendre(pos, intention.motif, decision, une_fois_par_jour=True):
                 del ouvertes[intention.ticker]
 
         self._decisions_du_jour(ouvertes, regles)
@@ -192,8 +205,10 @@ class _Passage:
         p.save(update_fields=["liquidites", "indice_quantite", "indice_liquidites", "demarre"])
         if p.demarre is not None:
             self._valoriser()
-        self.bilan["sans_cours"].sort()
         return self.bilan
+
+    def _absence(self, ticker: str) -> str:
+        return self.absences.get(ticker, "valeur non relevée")
 
     # -- ordres ------------------------------------------------------------------------------------
 
@@ -204,7 +219,7 @@ class _Passage:
         p, ticker = self.p, self.p.indice.ticker
         cotation = self.cotations.get(ticker)
         if cotation is None:
-            self.bilan["sans_cours"].append(ticker)
+            self.bilan["sans_cours"][ticker] = self._absence(ticker)
             return
         # Quantité entière, mêmes frais : on descend jusqu'à tenir dans le capital, frais compris.
         quantite = int(p.capital_initial // (cotation.prix * cotation.taux_eur))
@@ -215,8 +230,11 @@ class _Passage:
                     break
                 quantite -= 1
         except ValueError as erreur:
-            logger.warning("Achat de l'indice %s impossible (%s)", ticker, erreur)
-            self.bilan["refus"].append(f"{ticker} : {erreur}")
+            decision = Decision(
+                portefeuille=p, valeur=p.indice, instant=self.maintenant,
+                action=ActionDecision.ACHETER, motif="achat de l'indice de comparaison",
+            )
+            self._refuser(decision, str(erreur), une_fois_par_jour=True)
             return
         if quantite < 1:
             self.bilan["refus"].append(f"{ticker} : capital insuffisant pour une part")
@@ -224,38 +242,60 @@ class _Passage:
         p.indice_quantite = Decimal(quantite)
         p.indice_liquidites = p.capital_initial - ex.montant_eur - ex.frais.total
         p.demarre = self.maintenant
+        # Ordre sans position : l'indice n'appartient pas au portefeuille, mais ses frais restent tracés.
+        Ordre.objects.create(
+            portefeuille=p, valeur=p.indice, sens=SensOrdre.ACHAT, quantite=quantite, prix=ex.prix,
+            taux_eur=ex.taux_eur, montant_eur=ex.montant_eur, courtage=ex.frais.courtage,
+            change=ex.frais.change, tob=ex.frais.tob, frais_total=ex.frais.total,
+            instant=self.maintenant,
+        )
         self.bilan["indice"] = f"{ticker} x{quantite}"
 
-    def _executer(self, sens: str, ticker: str, quantite: int, decision: Decision) -> Execution | None:
+    def _executer(
+        self, sens: str, ticker: str, quantite: int, decision: Decision, une_fois_par_jour=False
+    ) -> Execution | None:
         """Exécution par le broker ; une erreur de frais devient un refus enregistré."""
         try:
             ex = self.broker.executer(self._demande(sens, ticker, quantite))
         except ValueError as erreur:
-            self._refuser(decision, str(erreur))
+            self._refuser(decision, str(erreur), une_fois_par_jour)
             return None
         if sens == SensOrdre.ACHAT and ex.montant_eur + ex.frais.total > self.p.liquidites:
             self._refuser(decision, "liquidités insuffisantes à l'exécution")
             return None
         return ex
 
-    def _refuser(self, decision: Decision, raison: str):
+    def _refuser(self, decision: Decision, raison: str, une_fois_par_jour=False):
+        """`une_fois_par_jour` : refus retenté à chaque cycle (stop, indice), enregistré une fois par jour local."""
+        self.bilan["refus"].append(f"{decision.valeur.ticker} : {raison}")
+        if une_fois_par_jour and self._deja_refuse(decision.valeur):
+            return
         decision.action = ActionDecision.REFUSER
         decision.motif = f"{decision.motif} — refusée : {raison}"
         decision.save()
-        self.bilan["refus"].append(f"{decision.valeur.ticker} : {raison}")
+
+    def _deja_refuse(self, valeur: Valeur) -> bool:
+        fuseau = ZoneInfo(FUSEAU_PLACE[valeur.place])
+        local = self.maintenant.astimezone(fuseau).date()
+        debut = datetime(local.year, local.month, local.day, tzinfo=fuseau)
+        # Les refus de stop et d'indice n'ont pas de `pour_le` (ceux des décisions du jour en ont un).
+        return self.p.decisions.filter(
+            valeur=valeur, action=ActionDecision.REFUSER, pour_le__isnull=True,
+            instant__gte=debut, instant__lt=debut + timedelta(days=1),
+        ).exists()
 
     def _ordre(self, position: Position, sens: str, quantite: int, ex: Execution, decision: Decision):
         decision.executee = self.maintenant
         decision.save()
         Ordre.objects.create(
-            portefeuille=self.p, position=position, sens=sens, quantite=quantite, prix=ex.prix,
+            portefeuille=self.p, position=position, valeur=position.valeur, sens=sens, quantite=quantite, prix=ex.prix,
             taux_eur=ex.taux_eur, montant_eur=ex.montant_eur, courtage=ex.frais.courtage,
             change=ex.frais.change, tob=ex.frais.tob, frais_total=ex.frais.total,
             instant=self.maintenant, decision=decision,
         )
 
-    def _vendre(self, pos: Position, motif: str, decision: Decision) -> bool:
-        ex = self._executer(SensOrdre.VENTE, pos.valeur.ticker, pos.quantite, decision)
+    def _vendre(self, pos: Position, motif: str, decision: Decision, une_fois_par_jour=False) -> bool:
+        ex = self._executer(SensOrdre.VENTE, pos.valeur.ticker, pos.quantite, decision, une_fois_par_jour)
         if ex is None:
             return False
         produit = ex.montant_eur - ex.frais.total
@@ -302,7 +342,7 @@ class _Passage:
             elif d.valeur.ticker in self.cotations:
                 cotables[d.valeur.ticker] = d
             else:
-                self.bilan["en_attente"] += 1
+                self.bilan["en_attente"][d.valeur.ticker] = self._absence(d.valeur.ticker)
         if not cotables:
             return
 
