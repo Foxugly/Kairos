@@ -20,9 +20,32 @@ class StatutValeur(models.TextChoices):
     INACTIVE = "inactive", "Inactive"
 
 
+class TypeTitre(models.TextChoices):
+    ACTION = "action", "Action"
+    ETF = "etf", "ETF"
+
+
 class ValeurQuerySet(models.QuerySet):
     def actives(self):
         return self.filter(statut=StatutValeur.ACTIVE)
+
+    def detenues(self):
+        """Valeurs d'une position ouverte (quel que soit leur statut)."""
+        # Modèle lu par la relation inverse : `marche` n'importe pas `portefeuille`.
+        position = self.model._meta.get_field("positions").related_model
+        return self.filter(
+            models.Exists(position.objects.filter(valeur=models.OuterRef("pk"), fermee_le__isnull=True))
+        )
+
+    def a_relever(self):
+        """Valeurs dont les cours sont relevés : actives, références, et toute valeur encore détenue.
+
+        Une valeur désactivée avec une position ouverte reste relevée : ses stops et ses signaux de
+        vente doivent pouvoir s'exécuter jusqu'à la sortie.
+        """
+        return self.filter(
+            models.Q(statut=StatutValeur.ACTIVE) | models.Q(reference=True) | models.Q(pk__in=self.detenues())
+        )
 
 
 class Valeur(models.Model):
@@ -38,6 +61,11 @@ class Valeur(models.Model):
         max_length=10, choices=StatutValeur.choices, default=StatutValeur.PROPOSEE
     )
     imposee = models.BooleanField(default=False)
+    # Suivie pour comparaison (ex. IWDA.AS) : jamais tradée, hors de la limite de l'univers.
+    reference = models.BooleanField(default=False)
+    type_titre = models.CharField(
+        max_length=10, choices=TypeTitre.choices, default=TypeTitre.ACTION
+    )
 
     objects = ValeurQuerySet.as_manager()
 

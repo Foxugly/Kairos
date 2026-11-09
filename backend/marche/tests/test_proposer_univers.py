@@ -7,6 +7,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase
 
 from marche.models import StatutValeur, Valeur
+from marche.tests.outils import repartir_de_zero
 
 IMPOSEES = {"AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TTE.PA", "TSLA"}
 
@@ -25,6 +26,9 @@ def fichier_csv(contenu):
 
 
 class ProposerUniversTests(TestCase):
+    def setUp(self):
+        repartir_de_zero()
+
     def test_cree_tout_l_univers(self):
         sortie = lancer()
         total = Valeur.objects.count()

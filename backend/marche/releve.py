@@ -1,4 +1,4 @@
-"""Relevé des cours : interroge la source pour les valeurs actives et enregistre bougies et taux."""
+"""Relevé des cours : interroge la source pour les valeurs à relever et enregistre bougies et taux."""
 
 import logging
 from datetime import UTC, datetime, time, timedelta
@@ -67,7 +67,7 @@ def _enregistrer(valeur: Valeur, intervalle: str, brutes) -> int:
     return len(brutes)
 
 
-def _enregistrer_isole(valeurs, intervalle: str, par_ticker: dict, erreurs: dict) -> int:
+def enregistrer_isole(valeurs, intervalle: str, par_ticker: dict, erreurs: dict) -> int:
     """Enregistre valeur par valeur : une erreur en base sur l'une n'empêche pas les autres."""
     total = 0
     for v in valeurs:
@@ -87,7 +87,7 @@ def relever_cours(maintenant: datetime, source: SourceCours | None = None) -> di
     "erreurs": {ticker: message}} ; un ticker en échec n'empêche pas les autres.
     """
     source = source or source_cours()
-    actives = list(Valeur.objects.actives())
+    actives = list(Valeur.objects.a_relever())
     erreurs: dict[str, str] = {}
     total = 0
 
@@ -102,7 +102,7 @@ def relever_cours(maintenant: datetime, source: SourceCours | None = None) -> di
             departs.append(max(derniere.debut, plancher) if derniere else plancher)
         par_ticker = source.bougies([v.ticker for v in en_cours], "5m", min(departs))
         erreurs.update(source.erreurs)
-        total += _enregistrer_isole(en_cours, "5m", par_ticker, erreurs)
+        total += enregistrer_isole(en_cours, "5m", par_ticker, erreurs)
 
     journalieres = [v for v in actives if _journee_a_relever(v, maintenant)]
     if journalieres:
@@ -110,7 +110,7 @@ def relever_cours(maintenant: datetime, source: SourceCours | None = None) -> di
             [v.ticker for v in journalieres], "1d", maintenant - timedelta(days=30)
         )
         erreurs.update(source.erreurs)
-        total += _enregistrer_isole(journalieres, "1d", par_ticker, erreurs)
+        total += enregistrer_isole(journalieres, "1d", par_ticker, erreurs)
 
     interrogees = en_cours + [v for v in journalieres if v not in en_cours]
     taux_recent = TauxChange.objects.filter(

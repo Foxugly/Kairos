@@ -27,12 +27,48 @@ et messages de commit en français. Dépôt public : aucun secret, aucune donné
   `marche/donnees/univers.csv` (8 valeurs imposées + S&P 100 + Euro Stoxx 50, tickers Yahoo, sans GOOG) ; relancée,
   elle met à jour nom/alias mais ne touche jamais au statut. Relevé des indices : 2026-11-09 (Wikipedia, composition
   au 2026-09-21) ; `BK` = BNY. À rafraîchir à la main lors des révisions trimestrielles.
+  `Valeur.reference` : valeur suivie pour comparaison (IWDA.AS), jamais tradée, hors limite de l'univers ;
+  `Valeur.objects.a_relever()` = actives + références + valeurs encore détenues (`detenues()`). `Valeur.type_titre` (`action`/`etf`, pour la TOB).
+  Bougie `1d` : `debut` = minuit UTC de la date locale de la séance. `manage.py historique [--jours 400] [--ticker T]`
+  charge les bougies 1d de `a_relever()` (idempotent) et, si une valeur est en USD, le taux USD de clôture de
+  chaque jour (`TauxChange` à minuit UTC, via `SourceCours.taux_journaliers`).
 
 - `sources/` — `FluxRss`, `Nouvelle` (dédoublonnées, rattachées aux valeurs), client Yahoo des cours, registre
   des sources. Flux de départ : `manage.py loaddata flux_depart`.
+- `analyse/` — code pur (Decimal, aucun accès base) : `indicateurs` (moyenne mobile, RSI de Wilder),
+  `signaux.signaux_du_jour(bougies)` (croisement MM20/MM50, RSI14 < 30 / > 70, cassure des 20 séances) et `score`.
+- `courtage/` — `Bareme` (+ `RegleCourtage` par place, `TauxTob` par type de titre), daté par `valide_depuis` ;
+  `Bareme.en_vigueur(broker, jour).donnees()` → `BaremeDonnees` figé. `frais.calculer_frais` (courtage, change,
+  TOB, en EUR, arrondis au centime). `broker` : interface `Broker`, `BrokerSimule` et `execution_simulee`
+  (glissement défavorable du barème, partagée avec le backtest). Barème IBKR Pro semé par migration.
+- `portefeuille/` — `Portefeuille` (règles : part max, positions max, stops, frais max, score d'achat ; indice de
+  comparaison), `Position`, `Decision`, `Ordre`, `Valorisation`, `ResultatBacktest`. Une migration de données
+  sème IWDA.AS et les portefeuilles « IA » et « Technique » (10 000 €, indice IWDA.AS). `strategie` (code pur,
+  partagé cycle/backtest) : `Regles.depuis(p)`, `stops`, `decider`. `execution` : étapes « decisions » (une fois
+  par jour après 22:30 UTC, signaux sur les 120 dernières bougies 1d → `Decision` pour le jour ouvré suivant) et
+  « execution » (achat de l'indice au démarrage ; stops à chaque cycle, déclenchés par le plus bas de la dernière
+  bougie 5m et exécutés à son dernier cours, plus haut suiveur relevé sur son plus haut ; décisions du jour au
+  premier cycle où la valeur est cotable, sinon abandonnées ; revalorisation). Une valeur désactivée encore
+  détenue reste relevée (`a_relever()`), surveillée et vendable, jamais achetée.
+  `manage.py backtest [--depuis AAAA-MM-JJ] [--portefeuille Technique]` : rejoue (`backtest.rejouer`, pur) les
+  règles sur les bougies 1d en base (lancer `historique --jours 1900` avant pour 5 ans), enregistre un
+  `ResultatBacktest` et affiche le rapport. Signal à la clôture J → ordre à l'ouverture de la séance suivante de
+  la valeur ; stops sur le plus bas du jour (sortie au stop, ou à l'ouverture en cas de gap) ; ordres en séance
+  au taux USD journalier d'avant J, valorisation au taux de J (taux relevés en séance ignorés). Il applique le barème en vigueur **aujourd'hui** et l'univers actuel à
+  toute la période (biais du survivant, signalé dans le rapport).
+  Écarts assumés entre direct et backtest : financement des achats — en direct, par ouverture de place (Europe
+  avant États-Unis, chaque décision au premier cycle où sa valeur est cotable), au backtest un seul passage par
+  jour trié par score ; jours fériés — en direct, une décision dont la place ne cote pas le jour prévu est
+  abandonnée, au backtest elle s'exécute à la séance suivante de la valeur ; une position achetée à l'ouverture
+  n'est pas confrontée au plus bas de ce jour-là dans le backtest (stops contrôlés avant les ordres du jour).
+- Choix de stratégie (plan 2, à relire) : signaux une fois par jour sur bougies 1d clôturées, exécutés le jour
+  suivant ; score +1 par signal d'achat, −1 par vente ; achat si score ≥ 2 et aucun signal de vente, vente si
+  score ≤ −1 ; stop-loss −5 %, stop suiveur armé à +5 % et placé 5 % sous le plus haut ; exécution simulée avec
+  0,1 % de glissement, quantités entières (une valeur dont une action dépasse 5 % du portefeuille est ignorée) ;
+  pas d'achat si les frais aller-retour dépassent 1 % du montant (`frais_max_relatifs`).
 - `cycle/` — `Cycle` (journal JSON par étape), `Verrou` (ligne unique pour la sérialisation) ; `deroulement.ETAPES`
-  liste les étapes (nouvelles, cours ; les plans 2 et 3 en ajoutent). `manage.py cycle` : une étape en échec n'arrête
-  pas les suivantes, code de sortie 0, cycles de plus de 30 jours purgés, cycle `en_cours` de plus de 10 min
+  liste les étapes (nouvelles, cours, decisions, execution ; le plan 3 en ajoute). `manage.py cycle` : une étape
+  en échec n'arrête pas les suivantes, code de sortie 0, cycles de plus de 30 jours purgés, cycle `en_cours` de plus de 10 min
   abandonné. Il sera lancé toutes les 5 minutes par un timer systemd (plan 5).
 
 ## Intégration continue

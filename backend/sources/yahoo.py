@@ -14,6 +14,8 @@ _CHAMPS = ["Open", "High", "Low", "Close", "Volume"]
 _TIMEOUT = 10  # secondes, par requête Yahoo
 _THREADS = 4
 _QUATRE_DECIMALES = Decimal("0.0001")
+_SIX_DECIMALES = Decimal("0.000001")
+_PAIRES = {"USD": "EURUSD=X"}  # dollars pour 1 euro
 
 
 def _decimal(valeur: float) -> Decimal:
@@ -83,4 +85,13 @@ class SourceYahoo:
         if cours.empty:
             raise ValueError("Aucun cours EURUSD=X")
         # EURUSD=X = dollars pour 1 euro ; on veut des euros pour 1 dollar.
-        return (Decimal(1) / Decimal(str(cours.iloc[-1]))).quantize(Decimal("0.000001"))
+        return (Decimal(1) / Decimal(str(cours.iloc[-1]))).quantize(_SIX_DECIMALES)
+
+    def taux_journaliers(self, devise: str, depuis: datetime) -> list[tuple[datetime, Decimal]]:
+        paire = _PAIRES.get(devise)
+        if paire is None:
+            self.erreurs = {devise: f"Devise non gérée : {devise}"}
+            return []
+        bougies = self.bougies([paire], "1d", depuis).get(paire, [])
+        self.erreurs = {devise: self.erreurs[paire]} if paire in self.erreurs else {}
+        return [(b.debut, (Decimal(1) / b.cloture).quantize(_SIX_DECIMALES)) for b in bougies]
