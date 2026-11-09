@@ -15,7 +15,7 @@ AXP,American Express,NYSE,USD,American Express,0
 BA,Boeing,NYSE,USD,Boeing,0
 BAC,Bank of America,NYSE,USD,Bank of America,0
 BKNG,Booking Holdings,NASDAQ,USD,Booking Holdings,0
-BK,BNY,NYSE,USD,BNY Mellon,0
+BK,BNY,NYSE,USD,"BNY Mellon,BNY",0
 BLK,BlackRock,NYSE,USD,BlackRock,0
 BMY,Bristol Myers Squibb,NYSE,USD,Bristol Myers Squibb,0
 BRK-B,Berkshire Hathaway,NYSE,USD,Berkshire Hathaway,0
@@ -71,7 +71,7 @@ NEE,NextEra Energy,NYSE,USD,NextEra,0
 NFLX,Netflix,NASDAQ,USD,Netflix,0
 NOW,ServiceNow,NYSE,USD,ServiceNow,0
 NVDA,Nvidia,NASDAQ,USD,"Nvidia,NVIDIA",1
-ORCL,Oracle,NYSE,USD,Oracle,0
+ORCL,Oracle,NYSE,USD,Oracle Corp,0
 PANW,Palo Alto Networks,NASDAQ,USD,Palo Alto Networks,0
 PEP,PepsiCo,NASDAQ,USD,PepsiCo,0
 PFE,Pfizer,NYSE,USD,Pfizer,0
@@ -94,7 +94,7 @@ UNH,UnitedHealth Group,NYSE,USD,UnitedHealth,0
 UNP,Union Pacific,NYSE,USD,Union Pacific,0
 UPS,United Parcel Service,NYSE,USD,UPS,0
 USB,U.S. Bancorp,NYSE,USD,U.S. Bancorp,0
-V,Visa,NYSE,USD,Visa,0
+V,Visa,NYSE,USD,Visa Inc,0
 VZ,Verizon,NYSE,USD,Verizon,0
 WFC,Wells Fargo,NYSE,USD,Wells Fargo,0
 WMT,Walmart,NYSE,USD,Walmart,0
