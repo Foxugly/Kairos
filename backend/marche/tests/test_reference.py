@@ -31,6 +31,33 @@ class ReferenceTests(TestCase):
         self.assertEqual(a_relever, {active, ref})
         self.assertNotIn(proposee, a_relever)
 
+    def test_a_relever_inclut_une_valeur_inactive_detenue(self):
+        from datetime import UTC, datetime
+        from decimal import Decimal
+
+        from portefeuille.models import Portefeuille, Position
+
+        ref = creer_valeur("IWDA.AS", StatutValeur.ACTIVE)
+        ref.reference = True
+        ref.save()
+        detenue = creer_valeur("D.PA", StatutValeur.INACTIVE)
+        vendue = creer_valeur("V.PA", StatutValeur.INACTIVE)
+        creer_valeur("N.PA", StatutValeur.INACTIVE)
+        p = Portefeuille.objects.create(nom="T", indice=ref)
+        instant = datetime(2026, 11, 2, tzinfo=UTC)
+        for valeur, fermee in ((detenue, None), (vendue, instant)):
+            Position.objects.create(
+                portefeuille=p, valeur=valeur, quantite=1, prix_entree=Decimal(1), taux_entree=Decimal(1),
+                cout_entree_eur=Decimal(1), plus_haut=Decimal(1), ouverte_le=instant, fermee_le=fermee,
+            )
+        autre = Portefeuille.objects.create(nom="U", indice=ref)
+        Position.objects.create(
+            portefeuille=autre, valeur=detenue, quantite=1, prix_entree=Decimal(1), taux_entree=Decimal(1),
+            cout_entree_eur=Decimal(1), plus_haut=Decimal(1), ouverte_le=instant,
+        )
+        # Une valeur désactivée encore détenue reste relevée, une seule fois ; vendue, elle ne l'est plus.
+        self.assertEqual(list(Valeur.objects.a_relever().order_by("ticker")), [detenue, ref])
+
     def test_proposer_univers_cree_iwda(self):
         lancer()
         iwda = Valeur.objects.get(ticker="IWDA.AS")

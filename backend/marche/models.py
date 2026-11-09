@@ -29,9 +29,23 @@ class ValeurQuerySet(models.QuerySet):
     def actives(self):
         return self.filter(statut=StatutValeur.ACTIVE)
 
+    def detenues(self):
+        """Valeurs d'une position ouverte (quel que soit leur statut)."""
+        # Modèle lu par la relation inverse : `marche` n'importe pas `portefeuille`.
+        position = self.model._meta.get_field("positions").related_model
+        return self.filter(
+            models.Exists(position.objects.filter(valeur=models.OuterRef("pk"), fermee_le__isnull=True))
+        )
+
     def a_relever(self):
-        """Valeurs dont les cours sont relevés : actives, plus les valeurs de référence."""
-        return self.filter(models.Q(statut=StatutValeur.ACTIVE) | models.Q(reference=True))
+        """Valeurs dont les cours sont relevés : actives, références, et toute valeur encore détenue.
+
+        Une valeur désactivée avec une position ouverte reste relevée : ses stops et ses signaux de
+        vente doivent pouvoir s'exécuter jusqu'à la sortie.
+        """
+        return self.filter(
+            models.Q(statut=StatutValeur.ACTIVE) | models.Q(reference=True) | models.Q(pk__in=self.detenues())
+        )
 
 
 class Valeur(models.Model):

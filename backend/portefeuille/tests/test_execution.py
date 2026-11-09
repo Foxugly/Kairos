@@ -431,6 +431,58 @@ class RaisonsEtBruitTests(Base):
         self.assertIsNone(self.p.demarre)
 
 
+class ValeurDesactiveeDetenueTests(Base):
+    """Une valeur désactivée encore détenue reste surveillée et vendable, jamais achetée."""
+
+    def setUp(self):
+        super().setUp()
+        self.demarrer()
+        self.tte.statut = StatutValeur.INACTIVE
+        self.tte.save()
+
+    def test_toujours_cotee(self):
+        self.position(self.tte)
+        bougie(self.tte, MARDI_MATIN - timedelta(minutes=5), "100")
+        self.assertIn("TTE.PA", marche(MARDI_MATIN))
+
+    def test_stop_toujours_declenche(self):
+        self.position(self.tte)
+        bougie(self.tte, MARDI_MATIN - timedelta(minutes=5), "94")
+        executer(MARDI_MATIN)
+        self.assertEqual(Position.objects.get().motif_sortie, "stop-loss −5 %")
+
+    def test_signal_de_vente_decide_et_execute(self):
+        self.position(self.tte)
+        historique(self.tte, 60)
+        historique(self.aapl, 60)
+        Valeur.objects.filter(pk=self.aapl.pk).update(statut=StatutValeur.INACTIVE)
+        signaux = [Signal("rsi", Sens.VENTE, "RSI haut")]
+        with mock.patch.object(execution, "signaux_du_jour", return_value=signaux):
+            decider_du_jour(MARDI_SOIR)
+        d = Decision.objects.get(valeur=self.tte)
+        self.assertEqual((d.action, d.pour_le), (ActionDecision.VENDRE, MERCREDI))
+        self.assertFalse(Decision.objects.filter(valeur=self.aapl).exists())
+        bougie(self.tte, MERCREDI_MATIN - timedelta(minutes=5), "100")
+        executer(MERCREDI_MATIN)
+        self.assertIn("signal de vente", Position.objects.get().motif_sortie)
+
+    def test_pas_d_achat_decide_sur_une_valeur_inactive(self):
+        historique(self.tte, 60)
+        signaux = [Signal("rsi", Sens.ACHAT, "a"), Signal("cassure", Sens.ACHAT, "b")]
+        with mock.patch.object(execution, "signaux_du_jour", return_value=signaux):
+            decider_du_jour(MARDI_SOIR)
+        self.assertFalse(Decision.objects.filter(valeur=self.tte).exists())
+
+    def test_achat_decide_avant_la_desactivation_refuse(self):
+        d = self.decision(self.tte)
+        bougie(self.tte, MARDI_MATIN - timedelta(minutes=5), "100")
+        executer(MARDI_MATIN)
+        d.refresh_from_db()
+        self.assertEqual(d.action, ActionDecision.REFUSER)
+        self.assertIn("valeur désactivée", d.motif)
+        self.assertFalse(Position.objects.exists())
+
+
 class IsolementTests(Base):
     def test_un_portefeuille_en_panne_n_arrete_pas_les_autres(self):
         Portefeuille.objects.create(nom="Casse", indice=self.iwda)

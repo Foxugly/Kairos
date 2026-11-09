@@ -12,12 +12,13 @@ from zoneinfo import ZoneInfo
 
 import sentry_sdk
 from django.db import transaction
+from django.db.models import Q
 
 from analyse.signaux import BougieJour, Sens, Signal, score, signaux_du_jour
 from courtage.broker import Broker, Execution, OrdreDemande, broker
 from courtage.frais import CENTIME
 from courtage.models import Bareme
-from marche.models import Bougie, TauxChange, Valeur
+from marche.models import Bougie, StatutValeur, TauxChange, Valeur
 from marche.seances import FUSEAU_PLACE
 
 from .marche_actuel import marche_et_absences
@@ -76,10 +77,15 @@ def decider_du_jour(maintenant: datetime) -> dict:
     if not portefeuilles.exclude(decisions__pour_le=pour_le).exists():
         return {"jour": jour, "deja_decide": True}
 
-    # Les signaux ne dépendent que des cours : calculés une fois pour tous les portefeuilles.
+    # Les signaux ne dépendent que des cours : calculés une fois pour tous les portefeuilles. Une valeur
+    # désactivée encore détenue garde ses signaux (pour la vendre), sans jamais être achetée.
     signaux: dict[str, list[Signal]] = {}
     sans_bougie: list[str] = []
-    for valeur in Valeur.objects.actives().filter(reference=False):
+    achetables = set(Valeur.objects.actives().filter(reference=False).values_list("ticker", flat=True))
+    analysees = Valeur.objects.filter(
+        Q(ticker__in=achetables) | Q(pk__in=Valeur.objects.detenues().filter(reference=False))
+    ).order_by("ticker")
+    for valeur in analysees:
         bougies = _bougies_jour(valeur, jour)
         if not bougies or bougies[-1].jour != jour:
             sans_bougie.append(valeur.ticker)
@@ -97,12 +103,12 @@ def decider_du_jour(maintenant: datetime) -> dict:
                 resultat["portefeuilles"][p.nom] = {"deja_decide": True}
                 continue
             resultat["portefeuilles"][p.nom] = _decider_portefeuille(
-                p, signaux, valeurs, sans_bougie, maintenant, pour_le
+                p, signaux, valeurs, achetables, sans_bougie, maintenant, pour_le
             )
     return resultat
 
 
-def _decider_portefeuille(p, signaux, valeurs, sans_bougie, maintenant, pour_le) -> dict:
+def _decider_portefeuille(p, signaux, valeurs, achetables, sans_bougie, maintenant, pour_le) -> dict:
     detenus = set(p.positions.filter(fermee_le__isnull=True).values_list("valeur__ticker", flat=True))
     regles = Regles.depuis(p)
     decisions = []
@@ -113,6 +119,7 @@ def _decider_portefeuille(p, signaux, valeurs, sans_bougie, maintenant, pour_le)
             action, motif = ActionDecision.VENDRE, f"signal de vente (score −{-s})"
         elif (
             ticker not in detenus
+            and ticker in achetables
             and s >= regles.score_achat
             and not any(x.sens is Sens.VENTE for x in liste)
         ):
@@ -339,6 +346,8 @@ class _Passage:
                 d.motif = f"{d.motif} — abandonnée : aucun cours exploitable le {d.pour_le}"
                 d.save()
                 self.bilan["abandonnees"] += 1
+            elif d.action == ActionDecision.ACHETER and not self._achetable(d.valeur):
+                self._refuser(d, "valeur désactivée depuis la décision")
             elif d.valeur.ticker in self.cotations:
                 cotables[d.valeur.ticker] = d
             else:
@@ -366,6 +375,10 @@ class _Passage:
         for d in cotables.values():
             deja = "position déjà ouverte" if d.action == ActionDecision.ACHETER else "aucune position ouverte"
             self._refuser(d, f"sans objet ({deja})")
+
+    @staticmethod
+    def _achetable(valeur: Valeur) -> bool:
+        return valeur.statut == StatutValeur.ACTIVE and not valeur.reference
 
     @staticmethod
     def _vues(ouvertes: dict[str, Position]) -> list[PositionVue]:
